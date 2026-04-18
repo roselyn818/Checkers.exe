@@ -40,6 +40,8 @@ public class GuiClient extends Application {
 	ListView<String> chatList;
 	TextField chatInput;
 	Button chatSendBtn;
+	Button toggleChat;
+	VBox chatPanel;
 
 	static final int TILE = 75;
 	static final int BOARD_SIZE = 8 * TILE;
@@ -187,6 +189,19 @@ public class GuiClient extends Application {
 			case chat: {
 				chatList.getItems().add(msg.getSenderUsername() + ": " + msg.getContent());
 				chatList.scrollTo(chatList.getItems().size() - 1);
+				// Show unread badge if chat is collapsed
+				if (!chatPanel.isVisible()) {
+					String current = toggleChat.getText();
+					// Parse existing unread count if present
+					int unread = 1;
+					if (current.contains("(")) {
+						try {
+							unread = Integer.parseInt(current.replaceAll(".*\\((\\d+)\\).*", "$1")) + 1;
+						} catch (NumberFormatException ignored) {}
+					}
+					toggleChat.setText("💬 Chat ▶ (" + unread + ")");
+					toggleChat.setStyle("-fx-background-color: #c0392b; -fx-text-fill: white; -fx-font-size: 11px;");
+				}
 				break;
 			}
 
@@ -397,7 +412,7 @@ public class GuiClient extends Application {
 		HBox.setHgrow(chatInput, javafx.scene.layout.Priority.ALWAYS);
 		chatInputRow.setPadding(new Insets(4, 0, 0, 0));
 
-		VBox chatPanel = new VBox(8, chatTitle, chatList, chatInputRow);
+		chatPanel = new VBox(8, chatTitle, chatList, chatInputRow);
 		chatPanel.setPadding(new Insets(10));
 		chatPanel.setStyle("-fx-background-color: #1e1e1e;");
 		chatPanel.setPrefWidth(240);
@@ -408,6 +423,30 @@ public class GuiClient extends Application {
 		BorderPane root = new BorderPane();
 		root.setCenter(boardCanvas);
 		root.setBottom(bottomBar);
+		toggleChat = new Button("💬 Chat ▶");
+		toggleChat.setStyle("-fx-background-color: #444; -fx-text-fill: white; -fx-font-size: 11px;");
+		toggleChat.setOnAction(e -> {
+			boolean visible = chatPanel.isVisible();
+			chatPanel.setVisible(!visible);
+			chatPanel.setManaged(!visible);
+			if (!visible) {
+				// Panel is opening — clear badge
+				toggleChat.setText("💬 Chat ◀");
+				toggleChat.setStyle("-fx-background-color: #444; -fx-text-fill: white; -fx-font-size: 11px;");
+			} else {
+				toggleChat.setText("💬 Chat ▶");
+				toggleChat.setStyle("-fx-background-color: #444; -fx-text-fill: white; -fx-font-size: 11px;");
+			}
+			Stage stage = (Stage) root.getScene().getWindow();
+			stage.setWidth(visible ? BOARD_SIZE + 40 : BOARD_SIZE + 240);
+		});
+
+		HBox topBar = new HBox(toggleChat);
+		topBar.setAlignment(Pos.CENTER_RIGHT);
+		topBar.setPadding(new Insets(4, 8, 0, 0));
+		topBar.setStyle("-fx-background-color: #2b2b2b;");
+
+		root.setTop(topBar);
 		root.setRight(chatPanel);
 		root.setStyle("-fx-background-color: #2b2b2b;");
 
