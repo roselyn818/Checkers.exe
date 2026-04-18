@@ -413,6 +413,8 @@ public class GuiClient extends Application {
 		chatInputRow.setPadding(new Insets(4, 0, 0, 0));
 
 		chatPanel = new VBox(8, chatTitle, chatList, chatInputRow);
+		chatPanel.setVisible(false);
+		chatPanel.setManaged(false);
 		chatPanel.setPadding(new Insets(10));
 		chatPanel.setStyle("-fx-background-color: #1e1e1e;");
 		chatPanel.setPrefWidth(240);
@@ -450,6 +452,6 @@ public class GuiClient extends Application {
 		root.setRight(chatPanel);
 		root.setStyle("-fx-background-color: #2b2b2b;");
 
-		return new Scene(root, BOARD_SIZE + 240, BOARD_SIZE + 80);
+		return new Scene(root, BOARD_SIZE + 40, BOARD_SIZE + 80);
 	}
 }
