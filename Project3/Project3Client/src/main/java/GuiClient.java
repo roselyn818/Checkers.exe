@@ -1,41 +1,45 @@
-
-import java.util.HashMap;
-
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
+import javafx.scene.canvas.Canvas;
+import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
-import javafx.scene.control.Button;
-import javafx.scene.control.ListView;
-import javafx.scene.control.TextField;
-import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.GridPane;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
 import javafx.stage.WindowEvent;
-import java.util.ArrayList;
-import java.util.List;
 
-public class GuiClient extends Application{
+import java.util.HashMap;
 
-	java.util.List<String> allMessages = new ArrayList<>();
-	TextField messageField;
-	Button sendBtn;
-	Button leaveBtn;
-	Button addUserBtn;
+public class GuiClient extends Application {
+
 	HashMap<String, Scene> sceneMap;
-	VBox clientBox;
 	Client clientConnection;
-	
-	ListView<String> listItems2;
-	ListView<String> userListView;
-	ComboBox<String> recipientBox;
+
 	String username = null;
-	
+	String redPlayer = null;
+	String blackPlayer = null;
+	int[][] board = null;
+	int currentTurn = -1;
+	int myColor = -1;
+
+	// Selected piece
+	int selectedRow = -1;
+	int selectedCol = -1;
+	boolean pieceSelected = false;
+
+	Canvas boardCanvas;
+	Label statusLabel;
+	Label turnLabel;
+
+	static final int TILE = 75;
+	static final int BOARD_SIZE = 8 * TILE;
+
 	public static void main(String[] args) {
 		launch(args);
 	}
@@ -43,28 +47,12 @@ public class GuiClient extends Application{
 	@Override
 	public void start(Stage primaryStage) throws Exception {
 
-		listItems2 = new ListView<String>();
-		userListView = new ListView<String>();
-		recipientBox = new ComboBox<String>();
-		recipientBox.getItems().add("ALL");
-		recipientBox.setValue("ALL");
-
 		clientConnection = new Client(data -> {
-			Platform.runLater(() -> {
-				handleIncoming((Message) data);
-			});
+			Platform.runLater(() -> handleIncoming((Message) data));
 		});
-
 		clientConnection.start();
 
-		Platform.runLater(() -> askForUsername(primaryStage));
-
-		messageField = new TextField();
-		sendBtn = new Button("Send");
-		sendBtn.setOnAction(e -> sendMessage());
-		messageField.setOnAction(e -> sendMessage());
-
-		sceneMap = new HashMap<String, Scene>();
+		sceneMap = new HashMap<>();
 		sceneMap.put("client", createClientGui());
 
 		primaryStage.setOnCloseRequest(new EventHandler<WindowEvent>() {
@@ -76,10 +64,11 @@ public class GuiClient extends Application{
 		});
 
 		primaryStage.setScene(sceneMap.get("client"));
-		primaryStage.setTitle("Client");
+		primaryStage.setTitle("Checkers");
 		primaryStage.show();
-	}
 
+		Platform.runLater(() -> askForUsername(primaryStage));
+	}
 
 	private void askForUsername(Stage owner) {
 		askForUsername(owner, null);
@@ -87,12 +76,12 @@ public class GuiClient extends Application{
 
 	private void askForUsername(Stage owner, String errorMsg) {
 		Stage dialog = new Stage();
-		dialog.setTitle("Choose Username");
+		dialog.setTitle("Join Checkers");
 		dialog.initOwner(owner);
 
 		TextField nameField = new TextField();
 		nameField.setPromptText("Enter username");
-		Button okBtn = new Button("Join");
+		Button okBtn = new Button("Join Game");
 		Label errLabel = new Label(errorMsg != null ? errorMsg : "");
 		errLabel.setStyle("-fx-text-fill: red;");
 
@@ -110,12 +99,11 @@ public class GuiClient extends Application{
 		nameField.setOnAction(e -> okBtn.fire());
 
 		VBox box = new VBox(10,
-				new Label("Choose a username:"),
+				new Label("Enter your username to join the game:"),
 				nameField, okBtn, errLabel);
 		box.setPadding(new Insets(20));
 
-		dialog.setScene(new Scene(box, 300, 150));
-		dialog.setUserData(dialog);
+		dialog.setScene(new Scene(box, 300, 160));
 		owner.setUserData(dialog);
 		dialog.show();
 	}
@@ -125,12 +113,12 @@ public class GuiClient extends Application{
 
 			case username_accepted: {
 				username = msg.getContent();
-				Stage owner = (Stage) sceneMap.get("client")
-						.getWindow();
+				Stage owner = (Stage) sceneMap.get("client").getWindow();
 				Object ud = owner.getUserData();
 				if (ud instanceof Stage) ((Stage) ud).close();
-				owner.setTitle("Client — " + username);
-				clientConnection.send(Message.getUserList(username));
+				owner.setTitle("Checkers — " + username);
+				statusLabel.setText("Connected as " + username + ". Joining game...");
+				clientConnection.send(Message.joinGame(username));
 				break;
 			}
 
@@ -142,350 +130,215 @@ public class GuiClient extends Application{
 				break;
 			}
 
-			case user_list: {
-				userListView.getItems().setAll(msg.getUserList());
-				String current = recipientBox.getValue();
-				List<String> existingGroups = new ArrayList<>();
-				for (String item : recipientBox.getItems()) {
-					if (item.startsWith("GROUP:")) existingGroups.add(item);
-				}
-
-				recipientBox.getItems().clear();
-				recipientBox.getItems().add("ALL");
-				for (String u : msg.getUserList()) {
-					if (!u.equals(username)) recipientBox.getItems().add(u);
-				}
-
-				for (String g : existingGroups) {
-					recipientBox.getItems().add(g);
-				}
-
-				recipientBox.setValue(
-						recipientBox.getItems().contains(current) ? current : "ALL");
+			case waiting_for_opponent: {
+				statusLabel.setText("Waiting for another player to join...");
 				break;
 			}
 
-			case group_created: {
-				String gKey = "GROUP:" + msg.getGroupName();
-				if (!recipientBox.getItems().contains(gKey))
-					recipientBox.getItems().add(gKey);
-
-				if (msg.getGroupMembers().size() > 0 &&
-						msg.getGroupMembers().get(0).equals(username)) {
-					addMessage("[Server] " + msg.getContent());
-					Alert alert = new Alert(Alert.AlertType.INFORMATION);
-					alert.setTitle("Group Created");
-					alert.setHeaderText(null);
-					alert.setContentText("Group '" + msg.getGroupName() + "' created!");
-					alert.show();
-				}
+			case game_start: {
+				redPlayer = msg.getRedPlayer();
+				blackPlayer = msg.getBlackPlayer();
+				board = msg.getBoard();
+				currentTurn = CheckersConstants.RED;
+				myColor = username.equals(redPlayer) ? CheckersConstants.RED : CheckersConstants.BLACK;
+				statusLabel.setText("Game started! You are " + (myColor == CheckersConstants.RED ? "RED" : "BLACK"));
+				updateTurnLabel();
+				drawBoard();
 				break;
 			}
 
-			case group_error:
-			case server_info: {
-				String content = msg.getContent();
-				addMessage("[Server] " + content);
-
-				if (content.contains("added you to group")) {
-					Alert alert = new Alert(Alert.AlertType.INFORMATION);
-					alert.setTitle("Added to Group");
-					alert.setHeaderText(null);
-					alert.setContentText(content);
-					alert.show();
-				}
+			case game_state: {
+				board = msg.getBoard();
+				currentTurn = msg.getCurrentTurn();
+				updateTurnLabel();
+				drawBoard();
 				break;
 			}
 
-			case receive_message: {
-				String context = msg.getGroupName();
-				String from    = msg.getSenderUsername();
-				String body    = msg.getContent();
-				String tag;
+			case invalid_move: {
+				statusLabel.setText("Invalid move: " + msg.getContent());
+				selectedRow = -1;
+				selectedCol = -1;
+				pieceSelected = false;
+				drawBoard();
+				break;
+			}
 
-				if ("ALL".equals(context)) {
-					tag = "[ALL]";
-				} else if ("PRIVATE".equals(context)) {
-					tag = "[PRIVATE from " + from + "]";
-					if (!recipientBox.getItems().contains(from)) {
-						recipientBox.getItems().add(from);
-					}
-				} else if (context != null && context.startsWith("PRIVATE→")) {
-					tag = "[PRIVATE to " + context.substring(8) + "]";
-				} else if (context != null && context.startsWith("GROUP:")) {
-					tag = "[GROUP:" + context.substring(6) + "]";
-				} else {
-					tag = "[?]";
-				}
-				addMessage(tag + " " + from + ": " + body);
+			case game_over: {
+				board = null;
+				drawBoard();
+				String winner = msg.getWinner();
+				statusLabel.setText("Game Over! " + msg.getContent());
+				turnLabel.setText("");
+
+				Alert alert = new Alert(Alert.AlertType.INFORMATION);
+				alert.setTitle("Game Over");
+				alert.setHeaderText(null);
+				alert.setContentText(msg.getContent());
+				alert.show();
 				break;
 			}
 
 			default:
-				addMessage("[?] " + msg);
+				statusLabel.setText("Unknown message: " + msg);
 		}
 	}
 
-
-	private void sendMessage() {
-		if (username == null) return;
-		String text = messageField.getText().trim();
-		if (text.isEmpty()) return;
-		String recipient = recipientBox.getValue();
-		if (recipient == null || recipient.equals("ALL")) {
-			clientConnection.send(Message.sendAll(username, text));
-			addMessage("[ALL] " + username + ": " + text);
-		} else if (recipient.startsWith("GROUP:")) {
-			String groupName = recipient.substring(6);
-			clientConnection.send(Message.sendGroup(username, groupName, text));
-			addMessage("[GROUP:" + groupName + "] " + username + ": " + text);
-		} else {
-			clientConnection.send(Message.sendPrivate(username, recipient, text));
-			addMessage("[PRIVATE to " + recipient + "] " + username + ": " + text);
+	private void handleBoardClick(double x, double y) {
+		if (board == null) return;
+		if (myColor != currentTurn) {
+			statusLabel.setText("It's not your turn!");
+			return;
 		}
-		messageField.clear();
-	}
 
+		int col = (int) (x / TILE);
+		int row = (int) (y / TILE);
 
-	private void showCreateGroupDialog(Stage owner) {
-		Stage dialog = new Stage();
-		dialog.setTitle("Create Group");
-		dialog.initOwner(owner);
+		if (row < 0 || row > 7 || col < 0 || col > 7) return;
 
-		TextField groupNameField = new TextField();
-		groupNameField.setPromptText("Group name");
-		TextArea membersArea = new TextArea();
-		membersArea.setPromptText("One username per line");
-		membersArea.setPrefRowCount(4);
-		Button createBtn = new Button("Create");
-		Label err = new Label("");
-		err.setStyle("-fx-text-fill: red;");
+		int piece = board[row][col];
 
-		createBtn.setOnAction(e -> {
-			String gName = groupNameField.getText().trim();
-			if (gName.isEmpty()) { err.setText("Group name required."); return; }
-			java.util.List<String> members = new java.util.ArrayList<>();
-			for (String line : membersArea.getText().split("\\n")) {
-				String m = line.trim();
-				if (!m.isEmpty()) members.add(m);
+		if (!pieceSelected) {
+			// Select a piece
+			if (piece == myColor || piece == getKingColor(myColor)) {
+				selectedRow = row;
+				selectedCol = col;
+				pieceSelected = true;
+				statusLabel.setText("Selected piece at (" + row + ", " + col + "). Now click destination.");
+				drawBoard();
+			} else {
+				statusLabel.setText("Select one of your pieces first.");
 			}
-			if (!members.contains(username)) members.add(0, username);
-			clientConnection.send(Message.createGroup(username, gName, members));
-			dialog.close();
-		});
-
-		VBox box = new VBox(8,
-				new Label("Group name:"), groupNameField,
-				new Label("Members:"), membersArea,
-				createBtn, err);
-		box.setPadding(new Insets(16));
-
-		dialog.setScene(new Scene(box, 280, 260));
-		dialog.show();
-	}
-
-	private void addMessage(String msg) {
-		allMessages.add(msg);
-		String selected = recipientBox.getValue();
-		if (selected != null) selected = selected.replace(" (!)", "");
-		String msgWindow = null;
-		if (msg.startsWith("[ALL] "))                    msgWindow = "ALL";
-		else if (msg.startsWith("[PRIVATE from ")) {
-			String rest = msg.substring("[PRIVATE from ".length());
-			msgWindow = rest.substring(0, rest.indexOf("]"));
-		} else if (msg.startsWith("[PRIVATE to ")) {
-			String rest = msg.substring("[PRIVATE to ".length());
-			msgWindow = rest.substring(0, rest.indexOf("]"));
-		} else if (msg.startsWith("[GROUP:")) {
-			String rest = msg.substring("[GROUP:".length());
-			msgWindow = "GROUP:" + rest.substring(0, rest.indexOf("]"));
-		}
-
-		if (msgWindow != null && !msgWindow.equals(selected)) {
-			markUnread(msgWindow);
-		}
-
-		if (selected == null || selected.equals("ALL")) {
-			filterMessages("ALL");
-		} else if (selected.startsWith("GROUP:")) {
-			filterMessages("GROUP:" + selected.substring(6));
 		} else {
-			filterMessages(selected);
+			// Try to move
+			if (row == selectedRow && col == selectedCol) {
+				// Deselect
+				pieceSelected = false;
+				selectedRow = -1;
+				selectedCol = -1;
+				drawBoard();
+				return;
+			}
+			clientConnection.send(Message.makeMove(username, selectedRow, selectedCol, row, col));
+			pieceSelected = false;
+			selectedRow = -1;
+			selectedCol = -1;
 		}
 	}
 
-	private void filterMessages(String filter) {
-		listItems2.getItems().clear();
-		if (filter == null || filter.equals("ALL MESSAGES")) {
-			listItems2.getItems().addAll(allMessages);
-		} else if (filter.equals("ALL")) {
-			for (String m : allMessages) {
-				if (m.startsWith("[ALL] ")) {
-					listItems2.getItems().add(m.substring("[ALL] ".length()));
-				} else if (m.startsWith("[Server]") && m.contains("[GLOBAL]")) {
-					listItems2.getItems().add(m);
+	private int getKingColor(int color) {
+		if (color == CheckersConstants.RED) return CheckersConstants.RED_KING;
+		if (color == CheckersConstants.BLACK) return CheckersConstants.BLACK_KING;
+		return CheckersConstants.EMPTY;
+	}
+
+	private void drawBoard() {
+		GraphicsContext gc = boardCanvas.getGraphicsContext2D();
+		gc.clearRect(0, 0, BOARD_SIZE, BOARD_SIZE);
+
+		if (board == null) {
+			gc.setFill(Color.GRAY);
+			gc.fillRect(0, 0, BOARD_SIZE, BOARD_SIZE);
+			gc.setFill(Color.WHITE);
+			gc.setFont(Font.font("serif", FontWeight.BOLD, 24));
+			gc.fillText("Waiting for game...", 130, BOARD_SIZE / 2.0);
+			return;
+		}
+
+		for (int row = 0; row < 8; row++) {
+			for (int col = 0; col < 8; col++) {
+				// Tile color
+				boolean isDark = (row + col) % 2 == 1;
+				if (isDark) {
+					gc.setFill(Color.SADDLEBROWN);
+				} else {
+					gc.setFill(Color.WHEAT);
 				}
-			}
-		} else if (filter.startsWith("GROUP:")) {
-			String groupName = filter.substring(6);
-			String prefix = "[GROUP:" + groupName + "] ";
-			for (String m : allMessages) {
-				if (m.startsWith(prefix)) {
-					listItems2.getItems().add(m.substring(prefix.length()));
-				} else if (m.startsWith("[Server]")
-						&& !m.contains("[GLOBAL]")
-						&& m.contains(groupName)) {
-					listItems2.getItems().add(m);
+				gc.fillRect(col * TILE, row * TILE, TILE, TILE);
+
+				// Highlight selected
+				if (pieceSelected && row == selectedRow && col == selectedCol) {
+					gc.setFill(Color.color(1, 1, 0, 0.5));
+					gc.fillRect(col * TILE, row * TILE, TILE, TILE);
 				}
-			}
-		} else {
-			String toPrefix   = "[PRIVATE to " + filter + "] ";
-			String fromPrefix = "[PRIVATE from " + filter + "] ";
-			for (String m : allMessages) {
-				if (m.startsWith(toPrefix)) {
-					listItems2.getItems().add(m.substring(toPrefix.length()));
-				} else if (m.startsWith(fromPrefix)) {
-					listItems2.getItems().add(m.substring(fromPrefix.length()));
+
+				// Draw piece
+				int piece = board[row][col];
+				if (piece != CheckersConstants.EMPTY) {
+					drawPiece(gc, row, col, piece);
 				}
 			}
 		}
 	}
 
-	private void showAddUserDialog(Stage owner, String groupName) {
-		Stage dialog = new Stage();
-		dialog.setTitle("Add User to " + groupName);
-		dialog.initOwner(owner);
+	private void drawPiece(GraphicsContext gc, int row, int col, int piece) {
+		double x = col * TILE + TILE * 0.1;
+		double y = row * TILE + TILE * 0.1;
+		double size = TILE * 0.8;
 
-		TextArea usersArea = new TextArea();
-		usersArea.setPromptText("One username per line");
-		usersArea.setPrefRowCount(4);
-		Button addBtn = new Button("Add");
-		Label err = new Label("");
-		err.setStyle("-fx-text-fill: red;");
+		// Shadow
+		gc.setFill(Color.color(0, 0, 0, 0.3));
+		gc.fillOval(x + 3, y + 3, size, size);
 
-		addBtn.setOnAction(e -> {
-			List<String> newMembers = new ArrayList<>();
-			for (String line : usersArea.getText().split("\\n")) {
-				String m = line.trim();
-				if (!m.isEmpty()) newMembers.add(m);
-			}
-			if (newMembers.isEmpty()) { err.setText("Enter at least one username."); return; }
-			clientConnection.send(Message.addToGroup(username, groupName, newMembers));
-			dialog.close();
-		});
+		// Piece color
+		if (piece == CheckersConstants.RED || piece == CheckersConstants.RED_KING) {
+			gc.setFill(Color.CRIMSON);
+		} else {
+			gc.setFill(Color.color(0.1, 0.1, 0.1));
+		}
+		gc.fillOval(x, y, size, size);
 
-		VBox box = new VBox(8,
-				new Label("Add users to group '" + groupName + "':"),
-				usersArea, addBtn, err);
-		box.setPadding(new Insets(16));
-		dialog.setScene(new Scene(box, 280, 220));
-		dialog.show();
+		// Highlight ring
+		if (piece == CheckersConstants.RED || piece == CheckersConstants.RED_KING) {
+			gc.setStroke(Color.LIGHTCORAL);
+		} else {
+			gc.setStroke(Color.DIMGRAY);
+		}
+		gc.setLineWidth(2);
+		gc.strokeOval(x + 4, y + 4, size - 8, size - 8);
+
+		// Crown for king
+		if (piece == CheckersConstants.RED_KING || piece == CheckersConstants.BLACK_KING) {
+			gc.setFill(Color.GOLD);
+			gc.setFont(Font.font("serif", FontWeight.BOLD, 20));
+			gc.fillText("♛", col * TILE + TILE * 0.3, row * TILE + TILE * 0.65);
+		}
 	}
 
-	private void markUnread(String window) {
-		for (int i = 0; i < recipientBox.getItems().size(); i++) {
-			String item = recipientBox.getItems().get(i);
-			String base = item.replace(" (!)", "");
-			if (base.equals(window) && !item.contains("(!)")) {
-				recipientBox.getItems().set(i, item + " (!)");
-				break;
-			}
+	private void updateTurnLabel() {
+		if (currentTurn == myColor) {
+			turnLabel.setText("YOUR TURN");
+			turnLabel.setStyle("-fx-text-fill: green; -fx-font-size: 16px; -fx-font-weight: bold;");
+		} else {
+			String otherName = (myColor == CheckersConstants.RED) ? blackPlayer : redPlayer;
+			turnLabel.setText(otherName + "'s turn");
+			turnLabel.setStyle("-fx-text-fill: gray; -fx-font-size: 16px;");
 		}
 	}
 
 	public Scene createClientGui() {
-		HBox sendRow = new HBox(6, recipientBox, messageField, sendBtn);
-		HBox.setHgrow(messageField, Priority.ALWAYS);
+		boardCanvas = new Canvas(BOARD_SIZE, BOARD_SIZE);
+		boardCanvas.setOnMouseClicked(e -> handleBoardClick(e.getX(), e.getY()));
 
-		Button refreshBtn = new Button("Refresh Users");
-		Button groupBtn   = new Button("Create Group");
-		leaveBtn = new Button("Leave Group");
-		addUserBtn = new Button("Add User to Group");
+		// Draw initial empty board
+		drawBoard();
 
-		leaveBtn.setMaxWidth(Double.MAX_VALUE);
-		addUserBtn.setMaxWidth(Double.MAX_VALUE);
+		statusLabel = new Label("Connecting to server...");
+		statusLabel.setFont(Font.font("serif", 14));
+		statusLabel.setWrapText(true);
 
-		leaveBtn.setVisible(false);
-		addUserBtn.setVisible(false);
-		leaveBtn.setManaged(false);
-		addUserBtn.setManaged(false);
+		turnLabel = new Label("");
+		turnLabel.setFont(Font.font("serif", FontWeight.BOLD, 16));
 
-		refreshBtn.setMaxWidth(Double.MAX_VALUE);
-		groupBtn.setMaxWidth(Double.MAX_VALUE);
-		leaveBtn.setMaxWidth(Double.MAX_VALUE);
-
-		VBox rightPane = new VBox(6,
-				new Label("Online Users:"),
-				userListView,
-				refreshBtn,
-				groupBtn,
-				leaveBtn,
-				addUserBtn);
-		rightPane.setPrefWidth(160);
-		rightPane.setPadding(new Insets(6));
-
-		refreshBtn.setOnAction(e -> {
-			if (username != null)
-				clientConnection.send(Message.getUserList(username));
-		});
-		groupBtn.setOnAction(e -> {
-			Stage owner = (Stage) sceneMap.get("client").getWindow();
-			showCreateGroupDialog(owner);
-		});
-		leaveBtn.setOnAction(e -> {
-			String selected = recipientBox.getValue();
-			if (selected == null || !selected.startsWith("GROUP:")) {
-				addMessage("[!] Select a group first.");
-				return;
-			}
-			String groupName = selected.substring(6);
-			clientConnection.send(Message.leaveGroup(username, groupName));
-			recipientBox.getItems().remove(selected);
-			recipientBox.setValue("ALL");
-		});
-
-		recipientBox.setOnAction(e -> {
-			String selected = recipientBox.getValue();
-			if (selected == null) return;
-
-			if (selected.contains("(!)")) {
-				String clean = selected.replace(" (!)", "");
-				int idx = recipientBox.getItems().indexOf(selected);
-				recipientBox.getItems().set(idx, clean);
-				recipientBox.setValue(clean);
-				selected = clean;
-			}
-
-			boolean isGroup = selected.startsWith("GROUP:");
-			leaveBtn.setVisible(isGroup);
-			leaveBtn.setManaged(isGroup);
-			addUserBtn.setVisible(isGroup);
-			addUserBtn.setManaged(isGroup);
-
-			if (selected.equals("ALL")) {
-				filterMessages("ALL");
-			} else if (isGroup) {
-				filterMessages("GROUP:" + selected.substring(6));
-			} else {
-				filterMessages(selected);
-			}
-		});
-
-		addUserBtn.setOnAction(e -> {
-			String selected = recipientBox.getValue();
-			if (selected == null || !selected.startsWith("GROUP:")) return;
-			showAddUserDialog((Stage) sceneMap.get("client").getWindow(), selected.substring(6));
-		});
-
-		VBox centerPane = new VBox(6, listItems2, sendRow);
-		VBox.setVgrow(listItems2, Priority.ALWAYS);
-		centerPane.setPadding(new Insets(6));
+		VBox bottomBar = new VBox(6, turnLabel, statusLabel);
+		bottomBar.setAlignment(Pos.CENTER);
+		bottomBar.setPadding(new Insets(10));
 
 		BorderPane root = new BorderPane();
-		root.setCenter(centerPane);
-		root.setRight(rightPane);
-		root.setStyle("-fx-background-color: blue; -fx-font-family: 'serif';");
+		root.setCenter(boardCanvas);
+		root.setBottom(bottomBar);
+		root.setStyle("-fx-background-color: #2b2b2b;");
 
-		return new Scene(root, 600, 400);
+		return new Scene(root, BOARD_SIZE, BOARD_SIZE + 80);
 	}
 }

@@ -1,0 +1,7 @@
+public class CheckersConstants {
+    public static final int EMPTY = 0;
+    public static final int RED = 1;
+    public static final int RED_KING = 2;
+    public static final int BLACK = 3;
+    public static final int BLACK_KING = 4;
+}

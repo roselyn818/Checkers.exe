@@ -1,3 +1,4 @@
+CheckersGame.class
 GuiServer.class
 Message$MessageType.class
 Server$ClientThread.class
