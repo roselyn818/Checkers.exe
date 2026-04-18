@@ -4,19 +4,24 @@ import java.io.Serializable;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Consumer;
 
 public class Server {
 
 	int count = 1;
-	ArrayList<ClientThread> clients = new ArrayList<ClientThread>();
+	ArrayList<ClientThread> clients = new ArrayList<>();
 	TheServer server;
 	private Consumer<Serializable> callback;
 
-	// Game state
+	// Active game
 	ClientThread player1 = null;
 	ClientThread player2 = null;
 	CheckersGame game = null;
+
+	// Rematch tracking
+	boolean player1WantsRematch = false;
+	boolean player2WantsRematch = false;
 
 	Server(Consumer<Serializable> call) {
 		callback = call;
@@ -41,15 +46,34 @@ public class Server {
 		}
 	}
 
-	synchronized void tryStartGame() {
-		if (player1 != null && player2 != null && game == null) {
-			game = new CheckersGame(player1.username, player2.username);
-			callback.accept("Game started: " + player1.username + " (RED) vs " + player2.username + " (BLACK)");
-
-			Message startMsg = Message.gameStart(player1.username, player2.username, game.getBoard());
-			player1.send(startMsg);
-			player2.send(startMsg);
+	// Broadcasts the list of lobby players (anyone not currently in a game)
+	synchronized void broadcastLobbyUpdate() {
+		List<String> lobbyPlayers = new ArrayList<>();
+		for (ClientThread c : clients) {
+			if (c.username != null && c != player1 && c != player2) {
+				lobbyPlayers.add(c.username);
+			}
 		}
+		Message update = Message.lobbyUpdate(lobbyPlayers);
+		for (ClientThread c : clients) {
+			if (c.username != null && c != player1 && c != player2) {
+				c.send(update);
+			}
+		}
+		callback.accept("Lobby updated: " + lobbyPlayers);
+	}
+
+	// Starts a game between two specific players (used for both challenges and rematches)
+	synchronized void startGame(ClientThread p1, ClientThread p2) {
+		player1 = p1;
+		player2 = p2;
+		player1WantsRematch = false;
+		player2WantsRematch = false;
+		game = new CheckersGame(player1.username, player2.username);
+		callback.accept("Game started: " + player1.username + " (RED) vs " + player2.username + " (BLACK)");
+		Message startMsg = Message.gameStart(player1.username, player2.username, game.getBoard());
+		player1.send(startMsg);
+		player2.send(startMsg);
 	}
 
 	synchronized void handleMove(ClientThread sender, Message msg) {
@@ -80,14 +104,47 @@ public class Server {
 			player1.send(gameOverMsg);
 			player2.send(gameOverMsg);
 			callback.accept("Game over! Winner: " + game.getWinner());
+			// Don't null out player1/player2 yet — needed for rematch
 			game = null;
-			player1 = null;
-			player2 = null;
 		} else {
-			Message stateMsg = Message.gameState(game.getBoard(), game.getCurrentTurn(), game.getRedPlayer(), game.getBlackPlayer(), game.getMultiJumpRow(), game.getMultiJumpCol());
+			// Send multi-jump state so client can lock piece if needed
+			Message stateMsg = Message.gameState(
+					game.getBoard(), game.getCurrentTurn(),
+					game.getRedPlayer(), game.getBlackPlayer(),
+					game.getMultiJumpRow(), game.getMultiJumpCol()
+			);
 			player1.send(stateMsg);
 			player2.send(stateMsg);
 		}
+	}
+
+	synchronized void handleRematch(ClientThread sender) {
+		if (player1 == null || player2 == null) return;
+		if (sender == player1) player1WantsRematch = true;
+		if (sender == player2) player2WantsRematch = true;
+
+		ClientThread other = (sender == player1) ? player2 : player1;
+		other.send(Message.rematchOffer(sender.username));
+		callback.accept(sender.username + " wants a rematch.");
+
+		if (player1WantsRematch && player2WantsRematch) {
+			callback.accept("Both players agreed to rematch — starting new game.");
+			startGame(player1, player2);
+		}
+	}
+
+	synchronized void handleRematchDecline(ClientThread sender) {
+		ClientThread other = (sender == player1) ? player2 : player1;
+		if (other != null) {
+			other.send(Message.challengeDeclined(sender.username));
+		}
+		player1 = null;
+		player2 = null;
+		game = null;
+		player1WantsRematch = false;
+		player2WantsRematch = false;
+		broadcastLobbyUpdate();
+		callback.accept(sender.username + " declined rematch. Both players returned to lobby.");
 	}
 
 	class ClientThread extends Thread {
@@ -142,13 +199,9 @@ public class Server {
 
 				case set_username: {
 					String requested = msg.getSenderUsername();
-					// Simple check: make sure no one else has this name
 					boolean taken = false;
 					for (ClientThread c : clients) {
-						if (c != this && requested.equals(c.username)) {
-							taken = true;
-							break;
-						}
+						if (c != this && requested.equals(c.username)) { taken = true; break; }
 					}
 					if (taken) {
 						send(Message.usernameTaken(requested));
@@ -156,23 +209,42 @@ public class Server {
 						username = requested;
 						send(Message.usernameAccepted(username));
 						callback.accept("Username set: " + username);
+						broadcastLobbyUpdate();
 					}
 					break;
 				}
 
-				case join_game: {
-					synchronized (Server.this) {
-						if (player1 == null) {
-							player1 = this;
-							send(Message.waitingForOpponent());
-							callback.accept(username + " is waiting for opponent.");
-						} else if (player2 == null && player1 != this) {
-							player2 = this;
-							tryStartGame();
-						} else {
-							send(Message.invalidMove("Game is already full or you already joined."));
+				case challenge_send: {
+					String targetName = msg.getRecipientUsername();
+					ClientThread target = findClientByUsername(targetName);
+					if (target == null) {
+						send(Message.invalidMove("Player " + targetName + " not found."));
+					} else {
+						target.send(Message.challengeReceive(username));
+						callback.accept(username + " challenged " + targetName);
+					}
+					break;
+				}
+
+				case challenge_accept: {
+					String challengerName = msg.getRecipientUsername();
+					ClientThread challenger = findClientByUsername(challengerName);
+					if (challenger != null) {
+						synchronized (Server.this) {
+							startGame(challenger, this);
+							broadcastLobbyUpdate();
 						}
 					}
+					break;
+				}
+
+				case challenge_decline: {
+					String challengerName = msg.getRecipientUsername();
+					ClientThread challenger = findClientByUsername(challengerName);
+					if (challenger != null) {
+						challenger.send(Message.challengeDeclined(username));
+					}
+					callback.accept(username + " declined challenge from " + challengerName);
 					break;
 				}
 
@@ -183,13 +255,20 @@ public class Server {
 
 				case chat: {
 					synchronized (Server.this) {
-						if (this == player1 && player2 != null) {
-							player2.send(msg);
-						} else if (this == player2 && player1 != null) {
-							player1.send(msg);
-						}
+						if (this == player1 && player2 != null) player2.send(msg);
+						else if (this == player2 && player1 != null) player1.send(msg);
 					}
 					callback.accept("[Chat] " + msg.getSenderUsername() + ": " + msg.getContent());
+					break;
+				}
+
+				case rematch_request: {
+					handleRematch(this);
+					break;
+				}
+
+				case rematch_decline: {
+					handleRematchDecline(this);
 					break;
 				}
 
@@ -198,10 +277,16 @@ public class Server {
 			}
 		}
 
+		private ClientThread findClientByUsername(String name) {
+			for (ClientThread c : clients) {
+				if (name.equals(c.username)) return c;
+			}
+			return null;
+		}
+
 		private void handleDisconnect() {
 			synchronized (Server.this) {
 				if (this == player1 || this == player2) {
-					// Notify the other player
 					ClientThread other = (this == player1) ? player2 : player1;
 					if (other != null) {
 						other.send(Message.gameOverDisconnect(other.username != null ? other.username : "You"));
@@ -209,7 +294,10 @@ public class Server {
 					game = null;
 					player1 = null;
 					player2 = null;
+					player1WantsRematch = false;
+					player2WantsRematch = false;
 				}
+				broadcastLobbyUpdate();
 			}
 		}
 	}

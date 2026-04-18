@@ -12,6 +12,14 @@ public class Message implements Serializable {
         username_taken,
         chat,
 
+        // Lobby
+        lobby_update,
+        challenge_send,
+        challenge_receive,
+        challenge_accept,
+        challenge_decline,
+        challenge_declined,
+
         // Game flow
         join_game,
         waiting_for_opponent,
@@ -19,11 +27,18 @@ public class Message implements Serializable {
         make_move,
         game_state,
         invalid_move,
-        game_over
+        game_over,
+
+        // Rematch
+        rematch_request,
+        rematch_offer,
+        rematch_accept,
+        rematch_decline
     }
 
     private MessageType type;
     private String senderUsername;
+    private String recipientUsername;
     private String content;
 
     // Move fields
@@ -31,15 +46,21 @@ public class Message implements Serializable {
 
     // Board state
     private int[][] board;
-    private int currentTurn; // CheckersGame.RED or BLACK
+    private int currentTurn;
     private String redPlayer;
     private String blackPlayer;
     private String winner;
+
+    // Multi-jump
     private int multiJumpRow = -1;
     private int multiJumpCol = -1;
 
+    // Lobby
+    private List<String> playerList;
+
     public Message(MessageType type) {
         this.type = type;
+        this.playerList = new ArrayList<>();
     }
 
     // ---- Factory methods ----
@@ -59,6 +80,46 @@ public class Message implements Serializable {
     public static Message usernameTaken(String username) {
         Message m = new Message(MessageType.username_taken);
         m.content = username + " is already taken.";
+        return m;
+    }
+
+    public static Message lobbyUpdate(List<String> players) {
+        Message m = new Message(MessageType.lobby_update);
+        m.playerList = new ArrayList<>(players);
+        return m;
+    }
+
+    public static Message challengeSend(String from, String to) {
+        Message m = new Message(MessageType.challenge_send);
+        m.senderUsername = from;
+        m.recipientUsername = to;
+        return m;
+    }
+
+    public static Message challengeReceive(String from) {
+        Message m = new Message(MessageType.challenge_receive);
+        m.senderUsername = from;
+        m.content = from + " challenged you!";
+        return m;
+    }
+
+    public static Message challengeAccept(String from, String to) {
+        Message m = new Message(MessageType.challenge_accept);
+        m.senderUsername = from;
+        m.recipientUsername = to;
+        return m;
+    }
+
+    public static Message challengeDecline(String from, String to) {
+        Message m = new Message(MessageType.challenge_decline);
+        m.senderUsername = from;
+        m.recipientUsername = to;
+        return m;
+    }
+
+    public static Message challengeDeclined(String decliner) {
+        Message m = new Message(MessageType.challenge_declined);
+        m.content = decliner + " declined your challenge.";
         return m;
     }
 
@@ -103,6 +164,17 @@ public class Message implements Serializable {
         return m;
     }
 
+    public static Message gameState(int[][] board, int currentTurn, String redPlayer, String blackPlayer, int multiJumpRow, int multiJumpCol) {
+        Message m = new Message(MessageType.game_state);
+        m.board = board;
+        m.currentTurn = currentTurn;
+        m.redPlayer = redPlayer;
+        m.blackPlayer = blackPlayer;
+        m.multiJumpRow = multiJumpRow;
+        m.multiJumpCol = multiJumpCol;
+        return m;
+    }
+
     public static Message invalidMove(String reason) {
         Message m = new Message(MessageType.invalid_move);
         m.content = reason;
@@ -130,14 +202,28 @@ public class Message implements Serializable {
         return m;
     }
 
-    public static Message gameState(int[][] board, int currentTurn, String redPlayer, String blackPlayer, int multiJumpRow, int multiJumpCol) {
-        Message m = new Message(MessageType.game_state);
-        m.board = board;
-        m.currentTurn = currentTurn;
-        m.redPlayer = redPlayer;
-        m.blackPlayer = blackPlayer;
-        m.multiJumpRow = multiJumpRow;
-        m.multiJumpCol = multiJumpCol;
+    public static Message rematchRequest(String username) {
+        Message m = new Message(MessageType.rematch_request);
+        m.senderUsername = username;
+        return m;
+    }
+
+    public static Message rematchOffer(String from) {
+        Message m = new Message(MessageType.rematch_offer);
+        m.senderUsername = from;
+        m.content = from + " wants a rematch!";
+        return m;
+    }
+
+    public static Message rematchAccept(String username) {
+        Message m = new Message(MessageType.rematch_accept);
+        m.senderUsername = username;
+        return m;
+    }
+
+    public static Message rematchDecline(String username) {
+        Message m = new Message(MessageType.rematch_decline);
+        m.senderUsername = username;
         return m;
     }
 
@@ -145,6 +231,7 @@ public class Message implements Serializable {
 
     public MessageType getType() { return type; }
     public String getSenderUsername() { return senderUsername; }
+    public String getRecipientUsername() { return recipientUsername; }
     public String getContent() { return content; }
     public int getFromRow() { return fromRow; }
     public int getFromCol() { return fromCol; }
@@ -157,9 +244,10 @@ public class Message implements Serializable {
     public String getWinner() { return winner; }
     public int getMultiJumpRow() { return multiJumpRow; }
     public int getMultiJumpCol() { return multiJumpCol; }
+    public List<String> getPlayerList() { return playerList; }
 
     @Override
     public String toString() {
-        return "[Message type=" + type + " sender=" + senderUsername + " content=" + content + "]";
+        return "[Message type=" + type + " sender=" + senderUsername + " recipient=" + recipientUsername + " content=" + content + "]";
     }
 }
