@@ -19,6 +19,18 @@ import java.util.List;
 
 public class GuiClient extends Application {
 
+	// ── Cyberpunk color palette ──────────────────
+	static final String BG_DARK      = "#0a0a0f";
+	static final String BG_MID       = "#0f0f1a";
+	static final String BG_PANEL     = "#12121f";
+	static final String NEON_PINK    = "#ff2d78";
+	static final String NEON_CYAN    = "#00f5ff";
+	static final String NEON_PURPLE  = "#bf00ff";
+	static final String NEON_YELLOW  = "#ffe600";
+	static final String NEON_GREEN   = "#00ff9f";
+	static final String TEXT_DIM     = "#7a7a9a";
+	static final String TEXT_BRIGHT  = "#e0e0ff";
+
 	HashMap<String, Scene> sceneMap;
 	Client clientConnection;
 	Stage primaryStage;
@@ -30,11 +42,11 @@ public class GuiClient extends Application {
 	int currentTurn = -1;
 	int myColor = -1;
 
-	// Selected piece
 	int selectedRow = -1;
 	int selectedCol = -1;
 	boolean pieceSelected = false;
 	boolean multiJumpActive = false;
+	Label usernameErrLabel = new Label("");
 
 	Canvas boardCanvas;
 	Label statusLabel;
@@ -46,7 +58,6 @@ public class GuiClient extends Application {
 	Button toggleChat;
 	VBox chatPanel;
 
-	// Lobby
 	ListView<String> lobbyPlayerList;
 	Label lobbyStatus;
 
@@ -80,74 +91,117 @@ public class GuiClient extends Application {
 		});
 
 		primaryStage.setScene(sceneMap.get("username"));
-		primaryStage.setTitle("Checkers");
+		primaryStage.setTitle("CHECKERS // ARCADE");
 		primaryStage.show();
 	}
 
 	// ─────────────────────────────────────────────
-	// ─────────────────────────────────────────────
-	//  USERNAME SCENE (inline)
+	//  HELPERS
 	// ─────────────────────────────────────────────
 
-	Label usernameErrLabel = new Label("");
+	private String neonBtn(String bg) {
+		return "-fx-background-color: " + bg + "; " +
+				"-fx-text-fill: " + BG_DARK + "; " +
+				"-fx-font-family: monospace; " +
+				"-fx-font-weight: bold; " +
+				"-fx-font-size: 13px; " +
+				"-fx-padding: 10px 16px; " +
+				"-fx-cursor: hand;";
+	}
+
+	private String glowLabel(String color) {
+		return "-fx-text-fill: " + color + "; " +
+				"-fx-font-family: monospace; " +
+				"-fx-font-weight: bold; ";
+	}
+
+	// ─────────────────────────────────────────────
+	//  USERNAME SCENE
+	// ─────────────────────────────────────────────
 
 	private Scene createUsernameScene() {
-		Label title = new Label("\u265f CHECKERS");
-		title.setStyle("-fx-font-size: 32px; -fx-font-weight: bold; -fx-text-fill: white; -fx-font-family: serif;");
+		Label arcade = new Label("[ CHECKERS ARCADE ]");
+		arcade.setStyle("-fx-text-fill: " + NEON_CYAN + "; -fx-font-family: monospace; -fx-font-size: 11px; -fx-font-weight: bold;");
 
-		Label subtitle = new Label("Online Multiplayer");
-		subtitle.setStyle("-fx-font-size: 14px; -fx-text-fill: #aaaaaa;");
+		Label title = new Label("INSERT COIN");
+		title.setStyle("-fx-text-fill: " + NEON_PINK + "; -fx-font-family: monospace; -fx-font-size: 36px; -fx-font-weight: bold;");
+
+		Label subtitle = new Label("// ONLINE MULTIPLAYER //");
+		subtitle.setStyle("-fx-text-fill: " + NEON_PURPLE + "; -fx-font-family: monospace; -fx-font-size: 12px;");
+
+		Label prompt = new Label("> ENTER PLAYER TAG:");
+		prompt.setStyle(glowLabel(NEON_CYAN) + "-fx-font-size: 12px;");
 
 		TextField nameField = new TextField();
-		nameField.setPromptText("Enter your username...");
-		nameField.setMaxWidth(260);
-		nameField.setStyle("-fx-background-color: #3c3c3c; -fx-text-fill: white; -fx-prompt-text-fill: gray; -fx-font-size: 14px; -fx-padding: 10px;");
+		nameField.setPromptText("player_one");
+		nameField.setMaxWidth(280);
+		nameField.setStyle(
+				"-fx-background-color: #1a1a2e; " +
+						"-fx-text-fill: " + NEON_GREEN + "; " +
+						"-fx-prompt-text-fill: #444466; " +
+						"-fx-font-family: monospace; " +
+						"-fx-font-size: 15px; " +
+						"-fx-padding: 10px; " +
+						"-fx-border-color: " + NEON_CYAN + "; " +
+						"-fx-border-width: 1px;"
+		);
 
-		Button okBtn = new Button("Enter Lobby  \u2192");
-		okBtn.setMaxWidth(260);
-		okBtn.setStyle("-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 12px;");
+		Button okBtn = new Button(">> START GAME <<");
+		okBtn.setMaxWidth(280);
+		okBtn.setStyle(neonBtn(NEON_PINK));
 
-		usernameErrLabel.setStyle("-fx-text-fill: #e74c3c; -fx-font-size: 12px;");
+		usernameErrLabel.setStyle("-fx-text-fill: " + NEON_PINK + "; -fx-font-family: monospace; -fx-font-size: 11px;");
 
 		okBtn.setOnAction(e -> {
 			String name = nameField.getText().trim();
-			if (name.isEmpty()) { usernameErrLabel.setText("Username cannot be empty."); return; }
+			if (name.isEmpty()) { usernameErrLabel.setText("! USERNAME CANNOT BE EMPTY"); return; }
 			okBtn.setDisable(true);
 			usernameErrLabel.setText("");
 			clientConnection.send(Message.setUsername(name));
 		});
 		nameField.setOnAction(e -> okBtn.fire());
 
-		VBox box = new VBox(16, title, subtitle, nameField, okBtn, usernameErrLabel);
-		box.setPadding(new Insets(80, 60, 40, 60));
-		box.setStyle("-fx-background-color: #1e1e1e;");
+		// Decorative scanline bar
+		Label scanline = new Label("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+		scanline.setStyle("-fx-text-fill: #222244; -fx-font-family: monospace; -fx-font-size: 10px;");
+
+		VBox box = new VBox(14, arcade, title, subtitle, scanline, prompt, nameField, okBtn, usernameErrLabel);
+		box.setPadding(new Insets(70, 60, 40, 60));
+		box.setStyle("-fx-background-color: " + BG_DARK + ";");
 		box.setAlignment(Pos.CENTER);
 
 		return new Scene(box, 420, 520);
 	}
-
 
 	// ─────────────────────────────────────────────
 	//  LOBBY SCENE
 	// ─────────────────────────────────────────────
 
 	private Scene createLobbyScene() {
-		Label title = new Label("♟ CHECKERS LOBBY");
-		title.setStyle("-fx-font-size: 26px; -fx-font-weight: bold; -fx-text-fill: white; -fx-font-family: serif;");
+		Label arcade = new Label("[ CHECKERS ARCADE ]");
+		arcade.setStyle("-fx-text-fill: " + NEON_CYAN + "; -fx-font-family: monospace; -fx-font-size: 11px;");
 
-		Label subtitle = new Label("Challenge a player to start a game");
-		subtitle.setStyle("-fx-font-size: 13px; -fx-text-fill: #aaaaaa;");
+		Label title = new Label("★ PLAYER SELECT ★");
+		title.setStyle("-fx-text-fill: " + NEON_PINK + "; -fx-font-family: monospace; -fx-font-size: 26px; -fx-font-weight: bold;");
 
-		VBox titleBox = new VBox(6, title, subtitle);
+		Label subtitle = new Label("// CHOOSE YOUR OPPONENT //");
+		subtitle.setStyle("-fx-text-fill: " + NEON_PURPLE + "; -fx-font-family: monospace; -fx-font-size: 11px;");
+
+		VBox titleBox = new VBox(6, arcade, title, subtitle);
 		titleBox.setAlignment(Pos.CENTER);
-		titleBox.setPadding(new Insets(30, 0, 20, 0));
+		titleBox.setPadding(new Insets(24, 0, 16, 0));
 
-		Label playersLabel = new Label("🟢  Players Online");
-		playersLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #cccccc;");
+		Label playersLabel = new Label("> PLAYERS ONLINE:");
+		playersLabel.setStyle(glowLabel(NEON_CYAN) + "-fx-font-size: 12px;");
 
 		lobbyPlayerList = new ListView<>();
-		lobbyPlayerList.setStyle("-fx-background-color: #2b2b2b; -fx-control-inner-background: #2b2b2b;");
-		lobbyPlayerList.setPrefHeight(220);
+		lobbyPlayerList.setStyle(
+				"-fx-background-color: #0d0d1a; " +
+						"-fx-control-inner-background: #0d0d1a; " +
+						"-fx-border-color: " + NEON_PURPLE + "; " +
+						"-fx-border-width: 1px;"
+		);
+		lobbyPlayerList.setPrefHeight(200);
 
 		lobbyPlayerList.setCellFactory(lv -> new ListCell<String>() {
 			@Override
@@ -155,13 +209,26 @@ public class GuiClient extends Application {
 				super.updateItem(item, empty);
 				if (empty || item == null) {
 					setText(null);
-					setStyle("-fx-background-color: #2b2b2b;");
+					setStyle("-fx-background-color: #0d0d1a;");
 				} else {
-					setText("  ♟  " + item);
+					setText("  ▶  " + item);
 					if (isSelected()) {
-						setStyle("-fx-text-fill: white; -fx-font-size: 14px; -fx-background-color: #e74c3c; -fx-padding: 8px; -fx-font-weight: bold;");
+						setStyle(
+								"-fx-text-fill: " + BG_DARK + "; " +
+										"-fx-font-family: monospace; " +
+										"-fx-font-size: 14px; " +
+										"-fx-background-color: " + NEON_CYAN + "; " +
+										"-fx-padding: 8px; " +
+										"-fx-font-weight: bold;"
+						);
 					} else {
-						setStyle("-fx-text-fill: white; -fx-font-size: 14px; -fx-background-color: #2b2b2b; -fx-padding: 8px;");
+						setStyle(
+								"-fx-text-fill: " + NEON_GREEN + "; " +
+										"-fx-font-family: monospace; " +
+										"-fx-font-size: 14px; " +
+										"-fx-background-color: #0d0d1a; " +
+										"-fx-padding: 8px;"
+						);
 					}
 				}
 			}
@@ -173,32 +240,36 @@ public class GuiClient extends Application {
 			}
 		});
 
-		Button challengeBtn = new Button("⚔  Challenge Selected Player");
+		Button challengeBtn = new Button("⚔  CHALLENGE PLAYER  ⚔");
 		challengeBtn.setMaxWidth(Double.MAX_VALUE);
-		challengeBtn.setStyle("-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 12px;");
+		challengeBtn.setStyle(neonBtn(NEON_PINK));
 		challengeBtn.setOnAction(e -> {
 			String selected = lobbyPlayerList.getSelectionModel().getSelectedItem();
-			if (selected == null) { lobbyStatus.setText("Select a player first!"); return; }
+			if (selected == null) { lobbyStatus.setText("! SELECT A PLAYER FIRST"); return; }
 			clientConnection.send(Message.challengeSend(username, selected));
-			lobbyStatus.setText("Challenge sent to " + selected + "...");
+			lobbyStatus.setText("> CHALLENGE SENT TO " + selected.toUpperCase() + "...");
 		});
 
 		lobbyStatus = new Label("");
-		lobbyStatus.setStyle("-fx-text-fill: #f39c12; -fx-font-size: 13px;");
+		lobbyStatus.setStyle("-fx-text-fill: " + NEON_YELLOW + "; -fx-font-family: monospace; -fx-font-size: 11px;");
 		lobbyStatus.setWrapText(true);
 
-		VBox centerBox = new VBox(12, playersLabel, lobbyPlayerList, challengeBtn, lobbyStatus);
-		centerBox.setPadding(new Insets(10, 40, 20, 40));
+		// Decorative bottom strip
+		Label strip = new Label("▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓");
+		strip.setStyle("-fx-text-fill: #1a1a3a; -fx-font-family: monospace; -fx-font-size: 9px;");
+
+		VBox centerBox = new VBox(10, playersLabel, lobbyPlayerList, challengeBtn, lobbyStatus, strip);
+		centerBox.setPadding(new Insets(10, 30, 20, 30));
 
 		VBox root = new VBox(titleBox, centerBox);
-		root.setStyle("-fx-background-color: #1e1e1e;");
+		root.setStyle("-fx-background-color: " + BG_DARK + ";");
 		VBox.setVgrow(centerBox, Priority.ALWAYS);
 
 		return new Scene(root, 420, 520);
 	}
 
 	// ─────────────────────────────────────────────
-	//  INCOMING MESSAGE HANDLER
+	//  INCOMING MESSAGE HANDLER  (logic unchanged)
 	// ─────────────────────────────────────────────
 
 	private void handleIncoming(Message msg) {
@@ -206,18 +277,16 @@ public class GuiClient extends Application {
 
 			case username_accepted: {
 				username = msg.getContent();
-				Object ud = primaryStage.getUserData();
-				if (ud instanceof Stage) ((Stage) ud).close();
-				primaryStage.setTitle("Checkers — " + username);
+				primaryStage.setTitle("CHECKERS // " + username.toUpperCase());
 				primaryStage.setScene(sceneMap.get("lobby"));
 				primaryStage.setWidth(420);
 				primaryStage.setHeight(520);
-				lobbyStatus.setText("Welcome, " + username + "! Waiting for players...");
+				lobbyStatus.setText("> WELCOME, " + username.toUpperCase() + "!");
 				break;
 			}
 
 			case username_taken: {
-				usernameErrLabel.setText(msg.getContent());
+				usernameErrLabel.setText("! " + msg.getContent().toUpperCase());
 				primaryStage.setScene(sceneMap.get("username"));
 				break;
 			}
@@ -226,18 +295,20 @@ public class GuiClient extends Application {
 				List<String> players = msg.getPlayerList();
 				players.removeIf(p -> p.equals(username));
 				lobbyPlayerList.getItems().setAll(players);
-				lobbyStatus.setText(players.isEmpty() ? "No other players online yet." : players.size() + " player(s) available.");
+				lobbyStatus.setText(players.isEmpty()
+						? "> NO PLAYERS ONLINE YET..."
+						: "> " + players.size() + " PLAYER(S) AVAILABLE");
 				break;
 			}
 
 			case challenge_receive: {
 				String challenger = msg.getSenderUsername();
 				Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
-				alert.setTitle("Challenge Received!");
-				alert.setHeaderText("⚔ " + challenger + " wants to play!");
+				alert.setTitle("INCOMING CHALLENGE");
+				alert.setHeaderText("⚔ " + challenger.toUpperCase() + " WANTS TO PLAY!");
 				alert.setContentText("Do you accept the challenge?");
-				ButtonType accept = new ButtonType("Accept ✅");
-				ButtonType decline = new ButtonType("Decline ❌");
+				ButtonType accept = new ButtonType("ACCEPT ✅");
+				ButtonType decline = new ButtonType("DECLINE ❌");
 				alert.getButtonTypes().setAll(accept, decline);
 				alert.showAndWait().ifPresent(result -> {
 					if (result == accept) {
@@ -249,9 +320,18 @@ public class GuiClient extends Application {
 				break;
 			}
 
+			case challenge_declined: {
+				if (primaryStage.getScene() == sceneMap.get("client")) {
+					statusLabel.setText(msg.getContent());
+					returnToLobby();
+				} else {
+					lobbyStatus.setText("> " + msg.getContent().toUpperCase());
+				}
+				break;
+			}
 
 			case waiting_for_opponent: {
-				lobbyStatus.setText("Waiting for another player to join...");
+				lobbyStatus.setText("> WAITING FOR OPPONENT...");
 				break;
 			}
 
@@ -261,7 +341,7 @@ public class GuiClient extends Application {
 				board = msg.getBoard();
 				currentTurn = CheckersConstants.RED;
 				myColor = username.equals(redPlayer) ? CheckersConstants.RED : CheckersConstants.BLACK;
-				statusLabel.setText("Game started! You are " + (myColor == CheckersConstants.RED ? "🔴 RED" : "⚫ BLACK"));
+				statusLabel.setText("PLAYER: " + (myColor == CheckersConstants.RED ? "🔴 RED" : "⚫ BLACK"));
 				multiJumpActive = false;
 				selectedRow = -1;
 				selectedCol = -1;
@@ -287,7 +367,7 @@ public class GuiClient extends Application {
 					selectedCol = mjCol;
 					pieceSelected = true;
 					multiJumpActive = true;
-					statusLabel.setText("Double jump! Keep jumping with the highlighted piece.");
+					statusLabel.setText(">> DOUBLE JUMP! KEEP JUMPING!");
 				} else {
 					selectedRow = -1;
 					selectedCol = -1;
@@ -300,7 +380,7 @@ public class GuiClient extends Application {
 			}
 
 			case invalid_move: {
-				statusLabel.setText("Invalid move: " + msg.getContent());
+				statusLabel.setText("! INVALID: " + msg.getContent().toUpperCase());
 				selectedRow = -1;
 				selectedCol = -1;
 				pieceSelected = false;
@@ -311,20 +391,20 @@ public class GuiClient extends Application {
 			case game_over: {
 				board = null;
 				drawBoard();
-				statusLabel.setText("Game Over! " + msg.getContent());
+				statusLabel.setText("GAME OVER // " + msg.getContent().toUpperCase());
 				turnLabel.setText("");
 
 				Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
-				alert.setTitle("Game Over");
-				alert.setHeaderText("🏆 " + msg.getContent());
-				alert.setContentText("Would you like a rematch?");
-				ButtonType rematch = new ButtonType("Rematch 🔄");
-				ButtonType backToLobby = new ButtonType("Back to Lobby");
+				alert.setTitle("GAME OVER");
+				alert.setHeaderText("🏆 " + msg.getContent().toUpperCase());
+				alert.setContentText("Continue playing?");
+				ButtonType rematch = new ButtonType("REMATCH 🔄");
+				ButtonType backToLobby = new ButtonType("LOBBY");
 				alert.getButtonTypes().setAll(rematch, backToLobby);
 				alert.showAndWait().ifPresent(result -> {
 					if (result == rematch) {
 						clientConnection.send(Message.rematchRequest(username));
-						statusLabel.setText("Rematch requested... waiting for opponent.");
+						statusLabel.setText("> REMATCH REQUESTED...");
 					} else {
 						clientConnection.send(Message.rematchDecline(username));
 						returnToLobby();
@@ -335,11 +415,11 @@ public class GuiClient extends Application {
 
 			case rematch_offer: {
 				Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
-				alert.setTitle("Rematch?");
-				alert.setHeaderText("🔄 " + msg.getContent());
-				alert.setContentText("Do you want to play again?");
-				ButtonType yes = new ButtonType("Yes! 🔄");
-				ButtonType no = new ButtonType("No thanks");
+				alert.setTitle("REMATCH?");
+				alert.setHeaderText("🔄 " + msg.getContent().toUpperCase());
+				alert.setContentText("Play again?");
+				ButtonType yes = new ButtonType("YES 🔄");
+				ButtonType no = new ButtonType("NO THANKS");
 				alert.getButtonTypes().setAll(yes, no);
 				alert.showAndWait().ifPresent(result -> {
 					if (result == yes) {
@@ -349,17 +429,6 @@ public class GuiClient extends Application {
 						returnToLobby();
 					}
 				});
-				break;
-			}
-
-			case challenge_declined: {
-				// Also used when opponent declines rematch
-				if (primaryStage.getScene() == sceneMap.get("client")) {
-					statusLabel.setText(msg.getContent());
-					returnToLobby();
-				} else {
-					lobbyStatus.setText(msg.getContent());
-				}
 				break;
 			}
 
@@ -373,14 +442,14 @@ public class GuiClient extends Application {
 						try { unread = Integer.parseInt(current.replaceAll(".*\\((\\d+)\\).*", "$1")) + 1; }
 						catch (NumberFormatException ignored) {}
 					}
-					toggleChat.setText("💬 Chat ▶ (" + unread + ")");
-					toggleChat.setStyle("-fx-background-color: #c0392b; -fx-text-fill: white; -fx-font-size: 11px;");
+					toggleChat.setText("💬 CHAT ▶ (" + unread + ")");
+					toggleChat.setStyle("-fx-background-color: " + NEON_PINK + "; -fx-text-fill: " + BG_DARK + "; -fx-font-family: monospace; -fx-font-size: 11px; -fx-font-weight: bold;");
 				}
 				break;
 			}
 
 			default:
-				if (statusLabel != null) statusLabel.setText("Unknown message: " + msg);
+				if (statusLabel != null) statusLabel.setText("?? " + msg);
 		}
 	}
 
@@ -401,13 +470,13 @@ public class GuiClient extends Application {
 	}
 
 	// ─────────────────────────────────────────────
-	//  BOARD CLICK HANDLER (unchanged from your version)
+	//  BOARD CLICK HANDLER  (logic unchanged)
 	// ─────────────────────────────────────────────
 
 	private void handleBoardClick(double x, double y) {
 		if (board == null) return;
 		if (myColor != currentTurn) {
-			statusLabel.setText("It's not your turn!");
+			statusLabel.setText("! NOT YOUR TURN");
 			return;
 		}
 
@@ -424,15 +493,15 @@ public class GuiClient extends Application {
 				selectedRow = row;
 				selectedCol = col;
 				pieceSelected = true;
-				statusLabel.setText("Selected piece at (" + row + ", " + col + "). Click destination.");
+				statusLabel.setText("> PIECE SELECTED. CHOOSE DESTINATION.");
 				drawBoard();
 			} else {
-				statusLabel.setText("Select one of your pieces first.");
+				statusLabel.setText("! SELECT YOUR OWN PIECE FIRST.");
 			}
 		} else {
 			if (row == selectedRow && col == selectedCol) {
 				if (multiJumpActive) {
-					statusLabel.setText("You must continue jumping with this piece!");
+					statusLabel.setText("! MUST CONTINUE JUMPING!");
 					return;
 				}
 				pieceSelected = false;
@@ -457,7 +526,7 @@ public class GuiClient extends Application {
 	}
 
 	// ─────────────────────────────────────────────
-	//  DRAW BOARD (unchanged from your version)
+	//  DRAW BOARD  (cyberpunk colors, same logic)
 	// ─────────────────────────────────────────────
 
 	private void drawBoard() {
@@ -465,11 +534,18 @@ public class GuiClient extends Application {
 		gc.clearRect(0, 0, BOARD_SIZE, BOARD_SIZE);
 
 		if (board == null) {
-			gc.setFill(Color.GRAY);
+			gc.setFill(Color.web(BG_DARK));
 			gc.fillRect(0, 0, BOARD_SIZE, BOARD_SIZE);
-			gc.setFill(Color.WHITE);
-			gc.setFont(Font.font("serif", FontWeight.BOLD, 24));
-			gc.fillText("Waiting for game...", 130, BOARD_SIZE / 2.0);
+			// Neon grid lines for "waiting" screen
+			gc.setStroke(Color.web(NEON_PURPLE, 0.3));
+			gc.setLineWidth(1);
+			for (int i = 0; i <= 8; i++) {
+				gc.strokeLine(i * TILE, 0, i * TILE, BOARD_SIZE);
+				gc.strokeLine(0, i * TILE, BOARD_SIZE, i * TILE);
+			}
+			gc.setFill(Color.web(NEON_CYAN));
+			gc.setFont(Font.font("monospace", FontWeight.BOLD, 20));
+			gc.fillText(">> AWAITING OPPONENT...", 60, BOARD_SIZE / 2.0);
 			return;
 		}
 
@@ -478,18 +554,28 @@ public class GuiClient extends Application {
 				int dispRow = toDisplayRow(row);
 				int dispCol = toDisplayCol(col);
 				boolean isDark = (dispRow + dispCol) % 2 == 1;
-				gc.setFill(isDark ? Color.SADDLEBROWN : Color.WHEAT);
+
+				// Cyberpunk board: dark navy vs deep purple
+				gc.setFill(isDark ? Color.web("#0d0d2b") : Color.web("#1a0a2e"));
 				gc.fillRect(dispCol * TILE, dispRow * TILE, TILE, TILE);
+
+				// Subtle neon grid lines
+				gc.setStroke(Color.web(NEON_PURPLE, 0.25));
+				gc.setLineWidth(0.5);
+				gc.strokeRect(dispCol * TILE, dispRow * TILE, TILE, TILE);
 
 				int piece = board[row][col];
 				if (piece != CheckersConstants.EMPTY) {
 					drawPiece(gc, dispRow, dispCol, piece);
 				}
 
-				// Draw highlight on top of piece so it's visible
+				// Neon yellow highlight for selected piece
 				if (pieceSelected && row == selectedRow && col == selectedCol) {
-					gc.setFill(Color.color(1, 1, 0, 0.45));
+					gc.setFill(Color.web(NEON_YELLOW, 0.35));
 					gc.fillRect(dispCol * TILE, dispRow * TILE, TILE, TILE);
+					gc.setStroke(Color.web(NEON_YELLOW));
+					gc.setLineWidth(2);
+					gc.strokeRect(dispCol * TILE + 1, dispRow * TILE + 1, TILE - 2, TILE - 2);
 				}
 			}
 		}
@@ -500,39 +586,54 @@ public class GuiClient extends Application {
 		double y = row * TILE + TILE * 0.1;
 		double size = TILE * 0.8;
 
-		gc.setFill(Color.color(0, 0, 0, 0.3));
-		gc.fillOval(x + 3, y + 3, size, size);
+		// Glow shadow
+		gc.setFill(Color.color(0, 0, 0, 0.5));
+		gc.fillOval(x + 4, y + 4, size, size);
 
 		if (piece == CheckersConstants.RED || piece == CheckersConstants.RED_KING) {
-			gc.setFill(Color.CRIMSON);
+			// Neon pink/red piece
+			gc.setFill(Color.web("#c0003a"));
+			gc.fillOval(x, y, size, size);
+			gc.setFill(Color.web(NEON_PINK, 0.6));
+			gc.fillOval(x + size * 0.15, y + size * 0.1, size * 0.5, size * 0.3);
+			gc.setStroke(Color.web(NEON_PINK));
 		} else {
-			gc.setFill(Color.color(0.1, 0.1, 0.1));
+			// Neon cyan/black piece
+			gc.setFill(Color.web("#050520"));
+			gc.fillOval(x, y, size, size);
+			gc.setFill(Color.web(NEON_CYAN, 0.4));
+			gc.fillOval(x + size * 0.15, y + size * 0.1, size * 0.5, size * 0.3);
+			gc.setStroke(Color.web(NEON_CYAN));
 		}
-		gc.fillOval(x, y, size, size);
 
+		gc.setLineWidth(2.5);
+		gc.strokeOval(x + 2, y + 2, size - 4, size - 4);
+
+		// Inner ring
 		if (piece == CheckersConstants.RED || piece == CheckersConstants.RED_KING) {
-			gc.setStroke(Color.LIGHTCORAL);
+			gc.setStroke(Color.web(NEON_PINK, 0.4));
 		} else {
-			gc.setStroke(Color.DIMGRAY);
+			gc.setStroke(Color.web(NEON_CYAN, 0.4));
 		}
-		gc.setLineWidth(2);
-		gc.strokeOval(x + 4, y + 4, size - 8, size - 8);
+		gc.setLineWidth(1);
+		gc.strokeOval(x + 8, y + 8, size - 16, size - 16);
 
+		// King crown
 		if (piece == CheckersConstants.RED_KING || piece == CheckersConstants.BLACK_KING) {
-			gc.setFill(Color.GOLD);
-			gc.setFont(Font.font("serif", FontWeight.BOLD, 20));
-			gc.fillText("♛", col * TILE + TILE * 0.3, row * TILE + TILE * 0.65);
+			gc.setFill(Color.web(NEON_YELLOW));
+			gc.setFont(Font.font("monospace", FontWeight.BOLD, 18));
+			gc.fillText("♛", col * TILE + TILE * 0.28, row * TILE + TILE * 0.67);
 		}
 	}
 
 	private void updateTurnLabel() {
 		if (currentTurn == myColor) {
-			turnLabel.setText("YOUR TURN");
-			turnLabel.setStyle("-fx-text-fill: green; -fx-font-size: 16px; -fx-font-weight: bold;");
+			turnLabel.setText(">> YOUR TURN <<");
+			turnLabel.setStyle("-fx-text-fill: " + NEON_GREEN + "; -fx-font-family: monospace; -fx-font-size: 15px; -fx-font-weight: bold;");
 		} else {
 			String otherName = (myColor == CheckersConstants.RED) ? blackPlayer : redPlayer;
-			turnLabel.setText(otherName + "'s turn");
-			turnLabel.setStyle("-fx-text-fill: gray; -fx-font-size: 16px;");
+			turnLabel.setText("// " + otherName.toUpperCase() + "'S TURN");
+			turnLabel.setStyle("-fx-text-fill: " + TEXT_DIM + "; -fx-font-family: monospace; -fx-font-size: 14px;");
 		}
 	}
 
@@ -542,7 +643,7 @@ public class GuiClient extends Application {
 	private int toActualCol(int displayCol) { return myColor == CheckersConstants.BLACK ? 7 - displayCol : displayCol; }
 
 	// ─────────────────────────────────────────────
-	//  GAME GUI (unchanged from your version)
+	//  GAME GUI
 	// ─────────────────────────────────────────────
 
 	public Scene createClientGui() {
@@ -550,43 +651,67 @@ public class GuiClient extends Application {
 		boardCanvas.setOnMouseClicked(e -> handleBoardClick(e.getX(), e.getY()));
 		drawBoard();
 
-		statusLabel = new Label("Connecting to server...");
-		statusLabel.setFont(Font.font("serif", 14));
+		statusLabel = new Label("> CONNECTING...");
+		statusLabel.setStyle("-fx-text-fill: " + NEON_CYAN + "; -fx-font-family: monospace; -fx-font-size: 12px;");
 		statusLabel.setWrapText(true);
 
 		turnLabel = new Label("");
-		turnLabel.setFont(Font.font("serif", FontWeight.BOLD, 16));
+		turnLabel.setStyle("-fx-font-family: monospace; -fx-font-size: 14px;");
 
-		VBox bottomBar = new VBox(6, turnLabel, statusLabel);
+		VBox bottomBar = new VBox(4, turnLabel, statusLabel);
 		bottomBar.setAlignment(Pos.CENTER);
-		bottomBar.setPadding(new Insets(10));
+		bottomBar.setPadding(new Insets(8));
+		bottomBar.setStyle("-fx-background-color: " + BG_PANEL + "; -fx-border-color: " + NEON_PURPLE + "; -fx-border-width: 1 0 0 0;");
 
-		Label chatTitle = new Label("Chat");
-		chatTitle.setStyle("-fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 13px;");
+		// ── Chat panel ──────────────────────────
+		Label chatTitle = new Label("// COMMS //");
+		chatTitle.setStyle(glowLabel(NEON_CYAN) + "-fx-font-size: 12px;");
 
 		chatList = new ListView<>();
 		chatList.setPrefWidth(220);
-		chatList.setStyle("-fx-background-color: #2b2b2b; -fx-control-inner-background: #2b2b2b; -fx-text-fill: white;");
+		chatList.setStyle(
+				"-fx-background-color: " + BG_DARK + "; " +
+						"-fx-control-inner-background: " + BG_DARK + "; " +
+						"-fx-border-color: " + NEON_PURPLE + "; " +
+						"-fx-border-width: 1px;"
+		);
+		chatList.setCellFactory(lv -> new ListCell<String>() {
+			@Override
+			protected void updateItem(String item, boolean empty) {
+				super.updateItem(item, empty);
+				if (empty || item == null) { setText(null); setStyle(""); }
+				else {
+					setText(item);
+					setStyle("-fx-text-fill: " + NEON_GREEN + "; -fx-font-family: monospace; -fx-font-size: 11px; -fx-background-color: " + BG_DARK + ";");
+				}
+			}
+		});
 		VBox.setVgrow(chatList, Priority.ALWAYS);
 
 		chatInput = new TextField();
-		chatInput.setPromptText("Type a message...");
-		chatInput.setStyle("-fx-background-color: #3c3c3c; -fx-text-fill: white; -fx-prompt-text-fill: gray;");
+		chatInput.setPromptText("transmit...");
+		chatInput.setStyle(
+				"-fx-background-color: #0d0d1a; " +
+						"-fx-text-fill: " + NEON_GREEN + "; " +
+						"-fx-prompt-text-fill: #334433; " +
+						"-fx-font-family: monospace; " +
+						"-fx-font-size: 11px; " +
+						"-fx-border-color: " + NEON_PURPLE + "; " +
+						"-fx-border-width: 1px;"
+		);
 
-		chatSendBtn = new Button("Send");
-		chatSendBtn.setMaxWidth(Double.MAX_VALUE);
-		chatSendBtn.setStyle("-fx-background-color: #555; -fx-text-fill: white;");
+		chatSendBtn = new Button("TX");
+		chatSendBtn.setStyle(neonBtn(NEON_CYAN));
 		chatSendBtn.setDisable(true);
 
 		Runnable sendChat = () -> {
 			String text = chatInput.getText().trim();
 			if (text.isEmpty() || username == null) return;
-			chatList.getItems().add("You: " + text);
+			chatList.getItems().add("[YOU] " + text);
 			chatList.scrollTo(chatList.getItems().size() - 1);
 			clientConnection.send(Message.chat(username, text));
 			chatInput.clear();
 		};
-
 		chatSendBtn.setOnAction(e -> sendChat.run());
 		chatInput.setOnAction(e -> sendChat.run());
 
@@ -598,38 +723,37 @@ public class GuiClient extends Application {
 		chatPanel.setVisible(false);
 		chatPanel.setManaged(false);
 		chatPanel.setPadding(new Insets(10));
-		chatPanel.setStyle("-fx-background-color: #1e1e1e;");
+		chatPanel.setStyle("-fx-background-color: " + BG_PANEL + "; -fx-border-color: " + NEON_PURPLE + "; -fx-border-width: 0 0 0 1;");
 		chatPanel.setPrefWidth(240);
 
-		BorderPane root = new BorderPane();
-		root.setCenter(boardCanvas);
-		root.setBottom(bottomBar);
+		// ── Top bar ─────────────────────────────
+		Label gameTag = new Label("[ CHECKERS ARCADE ]");
+		gameTag.setStyle(glowLabel(NEON_PURPLE) + "-fx-font-size: 10px;");
 
-		toggleChat = new Button("💬 Chat ▶");
-		toggleChat.setStyle("-fx-background-color: #444; -fx-text-fill: white; -fx-font-size: 11px;");
+		toggleChat = new Button("💬 COMMS ▶");
+		toggleChat.setStyle("-fx-background-color: #1a1a2e; -fx-text-fill: " + NEON_CYAN + "; -fx-font-family: monospace; -fx-font-size: 10px; -fx-border-color: " + NEON_CYAN + "; -fx-border-width: 1px;");
 		toggleChat.setOnAction(e -> {
 			boolean visible = chatPanel.isVisible();
 			chatPanel.setVisible(!visible);
 			chatPanel.setManaged(!visible);
-			if (!visible) {
-				toggleChat.setText("💬 Chat ◀");
-				toggleChat.setStyle("-fx-background-color: #444; -fx-text-fill: white; -fx-font-size: 11px;");
-			} else {
-				toggleChat.setText("💬 Chat ▶");
-				toggleChat.setStyle("-fx-background-color: #444; -fx-text-fill: white; -fx-font-size: 11px;");
-			}
-			Stage stage = (Stage) root.getScene().getWindow();
-			stage.setWidth(visible ? BOARD_SIZE + 40 : BOARD_SIZE + 240);
+			toggleChat.setText(!visible ? "💬 COMMS ◀" : "💬 COMMS ▶");
+			toggleChat.setStyle("-fx-background-color: #1a1a2e; -fx-text-fill: " + NEON_CYAN + "; -fx-font-family: monospace; -fx-font-size: 10px; -fx-border-color: " + NEON_CYAN + "; -fx-border-width: 1px;");
+			Stage stage = (Stage) primaryStage.getScene().getWindow();
+			stage.setWidth(visible ? BOARD_SIZE + 40 : BOARD_SIZE + 280);
 		});
 
-		HBox topBar = new HBox(toggleChat);
+		HBox topBar = new HBox(gameTag, toggleChat);
 		topBar.setAlignment(Pos.CENTER_RIGHT);
-		topBar.setPadding(new Insets(4, 8, 0, 0));
-		topBar.setStyle("-fx-background-color: #2b2b2b;");
+		HBox.setHgrow(gameTag, Priority.ALWAYS);
+		topBar.setPadding(new Insets(6, 10, 6, 10));
+		topBar.setStyle("-fx-background-color: " + BG_PANEL + "; -fx-border-color: " + NEON_PURPLE + "; -fx-border-width: 0 0 1 0;");
 
+		BorderPane root = new BorderPane();
 		root.setTop(topBar);
+		root.setCenter(boardCanvas);
+		root.setBottom(bottomBar);
 		root.setRight(chatPanel);
-		root.setStyle("-fx-background-color: #2b2b2b;");
+		root.setStyle("-fx-background-color: " + BG_DARK + ";");
 
 		return new Scene(root, BOARD_SIZE + 40, BOARD_SIZE + 80);
 	}
