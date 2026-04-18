@@ -442,8 +442,9 @@ public class GuiClient extends Application {
 						try { unread = Integer.parseInt(current.replaceAll(".*\\((\\d+)\\).*", "$1")) + 1; }
 						catch (NumberFormatException ignored) {}
 					}
-					toggleChat.setText("💬 CHAT ▶ (" + unread + ")");
-					toggleChat.setStyle("-fx-background-color: " + NEON_PINK + "; -fx-text-fill: " + BG_DARK + "; -fx-font-family: monospace; -fx-font-size: 11px; -fx-font-weight: bold;");
+					toggleChat.setText("💬 COMMS ▶ (" + unread + ")");
+					// Same format as normal button, just pink instead of cyan
+					toggleChat.setStyle("-fx-background-color: #1a1a2e; -fx-text-fill: " + NEON_PINK + "; -fx-font-family: monospace; -fx-font-size: 10px; -fx-border-color: " + NEON_PINK + "; -fx-border-width: 1px;");
 				}
 				break;
 			}
