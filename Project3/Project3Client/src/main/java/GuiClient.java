@@ -191,26 +191,28 @@ public class GuiClient extends Application {
 			return;
 		}
 
-		int col = (int) (x / TILE);
-		int row = (int) (y / TILE);
+		// Display grid position from pixel
+		int dispCol = (int) (x / TILE);
+		int dispRow = (int) (y / TILE);
+		if (dispRow < 0 || dispRow > 7 || dispCol < 0 || dispCol > 7) return;
 
-		if (row < 0 || row > 7 || col < 0 || col > 7) return;
+		// Convert display position → actual board position
+		int row = toActualRow(dispRow);
+		int col = toActualCol(dispCol);
 
 		int piece = board[row][col];
 
 		if (!pieceSelected) {
-			// Select a piece
 			if (piece == myColor || piece == getKingColor(myColor)) {
 				selectedRow = row;
 				selectedCol = col;
 				pieceSelected = true;
-				statusLabel.setText("Selected piece at (" + row + ", " + col + "). Now click destination.");
+				statusLabel.setText("Selected piece at (" + row + ", " + col + "). Click destination.");
 				drawBoard();
 			} else {
 				statusLabel.setText("Select one of your pieces first.");
 			}
 		} else {
-			// Try to move
 			if (row == selectedRow && col == selectedCol) {
 				// Deselect
 				pieceSelected = false;
@@ -219,6 +221,7 @@ public class GuiClient extends Application {
 				drawBoard();
 				return;
 			}
+			// Send actual board coordinates to server
 			clientConnection.send(Message.makeMove(username, selectedRow, selectedCol, row, col));
 			pieceSelected = false;
 			selectedRow = -1;
@@ -247,25 +250,25 @@ public class GuiClient extends Application {
 
 		for (int row = 0; row < 8; row++) {
 			for (int col = 0; col < 8; col++) {
-				// Tile color
-				boolean isDark = (row + col) % 2 == 1;
-				if (isDark) {
-					gc.setFill(Color.SADDLEBROWN);
-				} else {
-					gc.setFill(Color.WHEAT);
-				}
-				gc.fillRect(col * TILE, row * TILE, TILE, TILE);
+				// Convert actual board position → display position
+				int dispRow = toDisplayRow(row);
+				int dispCol = toDisplayCol(col);
 
-				// Highlight selected
+				// Tile color (based on display position)
+				boolean isDark = (dispRow + dispCol) % 2 == 1;
+				gc.setFill(isDark ? Color.SADDLEBROWN : Color.WHEAT);
+				gc.fillRect(dispCol * TILE, dispRow * TILE, TILE, TILE);
+
+				// Highlight selected piece
 				if (pieceSelected && row == selectedRow && col == selectedCol) {
 					gc.setFill(Color.color(1, 1, 0, 0.5));
-					gc.fillRect(col * TILE, row * TILE, TILE, TILE);
+					gc.fillRect(dispCol * TILE, dispRow * TILE, TILE, TILE);
 				}
 
-				// Draw piece
+				// Draw piece at display position
 				int piece = board[row][col];
 				if (piece != CheckersConstants.EMPTY) {
-					drawPiece(gc, row, col, piece);
+					drawPiece(gc, dispRow, dispCol, piece);
 				}
 			}
 		}
@@ -314,6 +317,22 @@ public class GuiClient extends Application {
 			turnLabel.setText(otherName + "'s turn");
 			turnLabel.setStyle("-fx-text-fill: gray; -fx-font-size: 16px;");
 		}
+	}
+
+	// Convert actual board row/col → display row/col (flipped for BLACK)
+	private int toDisplayRow(int actualRow) {
+		return myColor == CheckersConstants.BLACK ? 7 - actualRow : actualRow;
+	}
+	private int toDisplayCol(int actualCol) {
+		return myColor == CheckersConstants.BLACK ? 7 - actualCol : actualCol;
+	}
+
+	// Convert clicked display row/col → actual board row/col
+	private int toActualRow(int displayRow) {
+		return myColor == CheckersConstants.BLACK ? 7 - displayRow : displayRow;
+	}
+	private int toActualCol(int displayCol) {
+		return myColor == CheckersConstants.BLACK ? 7 - displayCol : displayCol;
 	}
 
 	public Scene createClientGui() {

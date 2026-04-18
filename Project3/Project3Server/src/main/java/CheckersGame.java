@@ -189,7 +189,12 @@ public class CheckersGame implements Serializable {
     }
 
     // Getters
-    public int[][] getBoard() { return board; }
+    public int[][] getBoard() {
+        int[][] copy = new int[8][8];
+        for (int r = 0; r < 8; r++)
+            copy[r] = board[r].clone();
+        return copy;
+    }
     public int getCurrentTurn() { return currentTurn; }
     public String getRedPlayer() { return redPlayer; }
     public String getBlackPlayer() { return blackPlayer; }

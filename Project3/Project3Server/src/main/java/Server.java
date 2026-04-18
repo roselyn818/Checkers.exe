@@ -192,7 +192,7 @@ public class Server {
 					// Notify the other player
 					ClientThread other = (this == player1) ? player2 : player1;
 					if (other != null) {
-						other.send(Message.gameOver("Opponent disconnected. " + (other.username != null ? other.username : "You") + " wins!"));
+						other.send(Message.gameOverDisconnect(other.username != null ? other.username : "You"));
 					}
 					game = null;
 					player1 = null;

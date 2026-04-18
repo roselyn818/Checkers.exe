@@ -113,6 +113,13 @@ public class Message implements Serializable {
         return m;
     }
 
+    public static Message gameOverDisconnect(String winnerUsername) {
+        Message m = new Message(MessageType.game_over);
+        m.winner = winnerUsername;
+        m.content = "Opponent disconnected. " + winnerUsername + " wins!";
+        return m;
+    }
+
     // ---- Getters ----
 
     public MessageType getType() { return type; }
