@@ -35,6 +35,8 @@ public class Message implements Serializable {
     private String redPlayer;
     private String blackPlayer;
     private String winner;
+    private int multiJumpRow = -1;
+    private int multiJumpCol = -1;
 
     public Message(MessageType type) {
         this.type = type;
@@ -128,6 +130,17 @@ public class Message implements Serializable {
         return m;
     }
 
+    public static Message gameState(int[][] board, int currentTurn, String redPlayer, String blackPlayer, int multiJumpRow, int multiJumpCol) {
+        Message m = new Message(MessageType.game_state);
+        m.board = board;
+        m.currentTurn = currentTurn;
+        m.redPlayer = redPlayer;
+        m.blackPlayer = blackPlayer;
+        m.multiJumpRow = multiJumpRow;
+        m.multiJumpCol = multiJumpCol;
+        return m;
+    }
+
     // ---- Getters ----
 
     public MessageType getType() { return type; }
@@ -142,6 +155,8 @@ public class Message implements Serializable {
     public String getRedPlayer() { return redPlayer; }
     public String getBlackPlayer() { return blackPlayer; }
     public String getWinner() { return winner; }
+    public int getMultiJumpRow() { return multiJumpRow; }
+    public int getMultiJumpCol() { return multiJumpCol; }
 
     @Override
     public String toString() {

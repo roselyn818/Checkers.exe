@@ -32,6 +32,7 @@ public class GuiClient extends Application {
 	int selectedRow = -1;
 	int selectedCol = -1;
 	boolean pieceSelected = false;
+	boolean multiJumpActive = false;
 
 	Canvas boardCanvas;
 	Label statusLabel;
@@ -157,6 +158,22 @@ public class GuiClient extends Application {
 			case game_state: {
 				board = msg.getBoard();
 				currentTurn = msg.getCurrentTurn();
+				int mjRow = msg.getMultiJumpRow();
+				int mjCol = msg.getMultiJumpCol();
+
+				if (currentTurn == myColor && mjRow != -1) {
+					// Lock onto the jumping piece
+					selectedRow = mjRow;
+					selectedCol = mjCol;
+					pieceSelected = true;
+					multiJumpActive = true;
+					statusLabel.setText("Double jump! Keep jumping with the highlighted piece.");
+				} else {
+					selectedRow = -1;
+					selectedCol = -1;
+					pieceSelected = false;
+					multiJumpActive = false;
+				}
 				updateTurnLabel();
 				drawBoard();
 				break;
@@ -240,18 +257,24 @@ public class GuiClient extends Application {
 			}
 		} else {
 			if (row == selectedRow && col == selectedCol) {
-				// Deselect
+				// Don't allow deselecting mid multi-jump
+				if (multiJumpActive) {
+					statusLabel.setText("You must continue jumping with this piece!");
+					return;
+				}
 				pieceSelected = false;
 				selectedRow = -1;
 				selectedCol = -1;
 				drawBoard();
 				return;
 			}
-			// Send actual board coordinates to server
 			clientConnection.send(Message.makeMove(username, selectedRow, selectedCol, row, col));
-			pieceSelected = false;
-			selectedRow = -1;
-			selectedCol = -1;
+			if (!multiJumpActive) {
+				pieceSelected = false;
+				selectedRow = -1;
+				selectedCol = -1;
+			}
+			// If multiJumpActive, leave the piece selected — server response will update state
 		}
 	}
 

@@ -18,6 +18,9 @@ public class CheckersGame implements Serializable {
     private boolean gameOver;
     private String winner;
 
+    private int multiJumpRow = -1;
+    private int multiJumpCol = -1;
+
     public CheckersGame(String redPlayer, String blackPlayer) {
         this.redPlayer = redPlayer;
         this.blackPlayer = blackPlayer;
@@ -50,6 +53,11 @@ public class CheckersGame implements Serializable {
     // Returns true if the move was valid and applied
     public boolean makeMove(String username, int fromRow, int fromCol, int toRow, int toCol) {
         if (gameOver) return false;
+        // If mid multi-jump, only allow the jumping piece to continue capturing
+        if (multiJumpRow != -1) {
+            if (fromRow != multiJumpRow || fromCol != multiJumpCol) return false;
+            if (Math.abs(toRow - fromRow) != 2) return false;
+        }
 
         int playerColor = getPlayerColor(username);
         if (playerColor == EMPTY) return false;
@@ -73,16 +81,25 @@ public class CheckersGame implements Serializable {
             board[midRow][midCol] = EMPTY;
         }
 
-        // King promotion
+        // Switch turns
+        boolean wasCapture = Math.abs(toRow - fromRow) == 2;
+
+// King promotion
         if (piece == RED && toRow == 0) board[toRow][toCol] = RED_KING;
         if (piece == BLACK && toRow == 7) board[toRow][toCol] = BLACK_KING;
 
-        // Check for win
         checkWin();
 
-        // Switch turns
         if (!gameOver) {
-            currentTurn = (currentTurn == RED) ? BLACK : RED;
+            if (wasCapture && canCaptureFrom(toRow, toCol, playerColor)) {
+                // Same player must continue jumping with this piece
+                multiJumpRow = toRow;
+                multiJumpCol = toCol;
+            } else {
+                multiJumpRow = -1;
+                multiJumpCol = -1;
+                currentTurn = (currentTurn == RED) ? BLACK : RED;
+            }
         }
 
         return true;
@@ -188,6 +205,19 @@ public class CheckersGame implements Serializable {
         return new int[]{-1, 1}; // Kings move both ways
     }
 
+    private boolean canCaptureFrom(int row, int col, int playerColor) {
+        int piece = board[row][col];
+        int[] directions = getDirections(piece);
+        for (int dr : directions) {
+            for (int dc : new int[]{-1, 1}) {
+                if (isValidMove(row, col, row + dr * 2, col + dc * 2, playerColor)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     // Getters
     public int[][] getBoard() {
         int[][] copy = new int[8][8];
@@ -200,6 +230,8 @@ public class CheckersGame implements Serializable {
     public String getBlackPlayer() { return blackPlayer; }
     public boolean isGameOver() { return gameOver; }
     public String getWinner() { return winner; }
+    public int getMultiJumpRow() { return multiJumpRow; }
+    public int getMultiJumpCol() { return multiJumpCol; }
 
     public String getCurrentTurnUsername() {
         return (currentTurn == RED) ? redPlayer : blackPlayer;

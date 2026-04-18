@@ -84,7 +84,7 @@ public class Server {
 			player1 = null;
 			player2 = null;
 		} else {
-			Message stateMsg = Message.gameState(game.getBoard(), game.getCurrentTurn(), game.getRedPlayer(), game.getBlackPlayer());
+			Message stateMsg = Message.gameState(game.getBoard(), game.getCurrentTurn(), game.getRedPlayer(), game.getBlackPlayer(), game.getMultiJumpRow(), game.getMultiJumpCol());
 			player1.send(stateMsg);
 			player2.send(stateMsg);
 		}
