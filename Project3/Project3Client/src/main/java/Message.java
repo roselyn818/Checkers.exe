@@ -10,6 +10,7 @@ public class Message implements Serializable {
         set_username,
         username_accepted,
         username_taken,
+        chat,
 
         // Game flow
         join_game,
@@ -117,6 +118,13 @@ public class Message implements Serializable {
         Message m = new Message(MessageType.game_over);
         m.winner = winnerUsername;
         m.content = "Opponent disconnected. " + winnerUsername + " wins!";
+        return m;
+    }
+
+    public static Message chat(String username, String text) {
+        Message m = new Message(MessageType.chat);
+        m.senderUsername = username;
+        m.content = text;
         return m;
     }
 

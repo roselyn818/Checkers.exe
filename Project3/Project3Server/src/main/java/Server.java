@@ -181,6 +181,18 @@ public class Server {
 					break;
 				}
 
+				case chat: {
+					synchronized (Server.this) {
+						if (this == player1 && player2 != null) {
+							player2.send(msg);
+						} else if (this == player2 && player1 != null) {
+							player1.send(msg);
+						}
+					}
+					callback.accept("[Chat] " + msg.getSenderUsername() + ": " + msg.getContent());
+					break;
+				}
+
 				default:
 					callback.accept("Unknown message type: " + msg.getType());
 			}

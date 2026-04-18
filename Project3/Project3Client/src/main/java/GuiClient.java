@@ -37,6 +37,10 @@ public class GuiClient extends Application {
 	Label statusLabel;
 	Label turnLabel;
 
+	ListView<String> chatList;
+	TextField chatInput;
+	Button chatSendBtn;
+
 	static final int TILE = 75;
 	static final int BOARD_SIZE = 8 * TILE;
 
@@ -144,6 +148,7 @@ public class GuiClient extends Application {
 				statusLabel.setText("Game started! You are " + (myColor == CheckersConstants.RED ? "RED" : "BLACK"));
 				updateTurnLabel();
 				drawBoard();
+				chatSendBtn.setDisable(false);
 				break;
 			}
 
@@ -176,6 +181,12 @@ public class GuiClient extends Application {
 				alert.setHeaderText(null);
 				alert.setContentText(msg.getContent());
 				alert.show();
+				break;
+			}
+
+			case chat: {
+				chatList.getItems().add(msg.getSenderUsername() + ": " + msg.getContent());
+				chatList.scrollTo(chatList.getItems().size() - 1);
 				break;
 			}
 
@@ -338,8 +349,6 @@ public class GuiClient extends Application {
 	public Scene createClientGui() {
 		boardCanvas = new Canvas(BOARD_SIZE, BOARD_SIZE);
 		boardCanvas.setOnMouseClicked(e -> handleBoardClick(e.getX(), e.getY()));
-
-		// Draw initial empty board
 		drawBoard();
 
 		statusLabel = new Label("Connecting to server...");
@@ -353,11 +362,55 @@ public class GuiClient extends Application {
 		bottomBar.setAlignment(Pos.CENTER);
 		bottomBar.setPadding(new Insets(10));
 
+		// --- Chat panel ---
+		Label chatTitle = new Label("Chat");
+		chatTitle.setStyle("-fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 13px;");
+
+		chatList = new ListView<>();
+		chatList.setPrefWidth(220);
+		chatList.setStyle("-fx-background-color: #2b2b2b; -fx-control-inner-background: #2b2b2b; -fx-text-fill: white;");
+		VBox.setVgrow(chatList, javafx.scene.layout.Priority.ALWAYS);
+
+		chatInput = new TextField();
+		chatInput.setPromptText("Type a message...");
+		chatInput.setStyle("-fx-background-color: #3c3c3c; -fx-text-fill: white; -fx-prompt-text-fill: gray;");
+
+		chatSendBtn = new Button("Send");
+		chatSendBtn.setMaxWidth(Double.MAX_VALUE);
+		chatSendBtn.setStyle("-fx-background-color: #555; -fx-text-fill: white;");
+		chatSendBtn.setDisable(true);
+
+		Runnable sendChat = () -> {
+			String text = chatInput.getText().trim();
+			if (text.isEmpty() || username == null) return;
+			// Show own message locally
+			chatList.getItems().add("You: " + text);
+			chatList.scrollTo(chatList.getItems().size() - 1);
+			clientConnection.send(Message.chat(username, text));
+			chatInput.clear();
+		};
+
+		chatSendBtn.setOnAction(e -> sendChat.run());
+		chatInput.setOnAction(e -> sendChat.run());
+
+		HBox chatInputRow = new HBox(6, chatInput, chatSendBtn);
+		HBox.setHgrow(chatInput, javafx.scene.layout.Priority.ALWAYS);
+		chatInputRow.setPadding(new Insets(4, 0, 0, 0));
+
+		VBox chatPanel = new VBox(8, chatTitle, chatList, chatInputRow);
+		chatPanel.setPadding(new Insets(10));
+		chatPanel.setStyle("-fx-background-color: #1e1e1e;");
+		chatPanel.setPrefWidth(240);
+
+		// Enable send button once game starts
+		// (done in handleIncoming game_start case below)
+
 		BorderPane root = new BorderPane();
 		root.setCenter(boardCanvas);
 		root.setBottom(bottomBar);
+		root.setRight(chatPanel);
 		root.setStyle("-fx-background-color: #2b2b2b;");
 
-		return new Scene(root, BOARD_SIZE, BOARD_SIZE + 80);
+		return new Scene(root, BOARD_SIZE + 240, BOARD_SIZE + 80);
 	}
 }
