@@ -19,7 +19,6 @@ import java.util.List;
 
 public class GuiClient extends Application {
 
-	// ── Cyberpunk color palette ──────────────────
 	static final String BG_DARK      = "#0a0a0f";
 	static final String BG_MID       = "#0f0f1a";
 	static final String BG_PANEL     = "#12121f";
@@ -46,7 +45,10 @@ public class GuiClient extends Application {
 	int selectedCol = -1;
 	boolean pieceSelected = false;
 	boolean multiJumpActive = false;
+	boolean rematchRequested = false;
+
 	Label usernameErrLabel = new Label("");
+	Button usernameBtn = null; // field so username_taken can re-enable it
 
 	Canvas boardCanvas;
 	Label statusLabel;
@@ -99,10 +101,6 @@ public class GuiClient extends Application {
 		primaryStage.show();
 	}
 
-	// ─────────────────────────────────────────────
-	//  HELPERS
-	// ─────────────────────────────────────────────
-
 	private String neonBtn(String bg) {
 		return "-fx-background-color: " + bg + "; " +
 				"-fx-text-fill: " + BG_DARK + "; " +
@@ -150,26 +148,27 @@ public class GuiClient extends Application {
 						"-fx-border-width: 1px;"
 		);
 
-		Button okBtn = new Button(">> START GAME <<");
-		okBtn.setMaxWidth(280);
-		okBtn.setStyle(neonBtn(NEON_PINK));
+		// Store as field so username_taken can re-enable it
+		usernameBtn = new Button(">> START GAME <<");
+		usernameBtn.setMaxWidth(280);
+		usernameBtn.setStyle(neonBtn(NEON_PINK));
 
 		usernameErrLabel.setStyle("-fx-text-fill: " + NEON_PINK + "; -fx-font-family: monospace; -fx-font-size: 11px;");
+		usernameErrLabel.setText("");
 
-		okBtn.setOnAction(e -> {
+		usernameBtn.setOnAction(e -> {
 			String name = nameField.getText().trim();
 			if (name.isEmpty()) { usernameErrLabel.setText("! USERNAME CANNOT BE EMPTY"); return; }
-			okBtn.setDisable(true);
+			usernameBtn.setDisable(true);
 			usernameErrLabel.setText("");
 			clientConnection.send(Message.setUsername(name));
 		});
-		nameField.setOnAction(e -> okBtn.fire());
+		nameField.setOnAction(e -> usernameBtn.fire());
 
-		// Decorative scanline bar
 		Label scanline = new Label("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 		scanline.setStyle("-fx-text-fill: #222244; -fx-font-family: monospace; -fx-font-size: 10px;");
 
-		VBox box = new VBox(14, arcade, title, subtitle, scanline, prompt, nameField, okBtn, usernameErrLabel);
+		VBox box = new VBox(14, arcade, title, subtitle, scanline, prompt, nameField, usernameBtn, usernameErrLabel);
 		box.setPadding(new Insets(70, 60, 40, 60));
 		box.setStyle("-fx-background-color: " + BG_DARK + ";");
 		box.setAlignment(Pos.CENTER);
@@ -217,22 +216,9 @@ public class GuiClient extends Application {
 				} else {
 					setText("  ▶  " + item);
 					if (isSelected()) {
-						setStyle(
-								"-fx-text-fill: " + BG_DARK + "; " +
-										"-fx-font-family: monospace; " +
-										"-fx-font-size: 14px; " +
-										"-fx-background-color: " + NEON_CYAN + "; " +
-										"-fx-padding: 8px; " +
-										"-fx-font-weight: bold;"
-						);
+						setStyle("-fx-text-fill: " + BG_DARK + "; -fx-font-family: monospace; -fx-font-size: 14px; -fx-background-color: " + NEON_CYAN + "; -fx-padding: 8px; -fx-font-weight: bold;");
 					} else {
-						setStyle(
-								"-fx-text-fill: " + NEON_GREEN + "; " +
-										"-fx-font-family: monospace; " +
-										"-fx-font-size: 14px; " +
-										"-fx-background-color: #0d0d1a; " +
-										"-fx-padding: 8px;"
-						);
+						setStyle("-fx-text-fill: " + NEON_GREEN + "; -fx-font-family: monospace; -fx-font-size: 14px; -fx-background-color: #0d0d1a; -fx-padding: 8px;");
 					}
 				}
 			}
@@ -258,7 +244,6 @@ public class GuiClient extends Application {
 		lobbyStatus.setStyle("-fx-text-fill: " + NEON_YELLOW + "; -fx-font-family: monospace; -fx-font-size: 11px;");
 		lobbyStatus.setWrapText(true);
 
-		// Decorative bottom strip
 		Label strip = new Label("▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓");
 		strip.setStyle("-fx-text-fill: #1a1a3a; -fx-font-family: monospace; -fx-font-size: 9px;");
 
@@ -276,7 +261,7 @@ public class GuiClient extends Application {
 	}
 
 	// ─────────────────────────────────────────────
-	//  INCOMING MESSAGE HANDLER  (logic unchanged)
+	//  INCOMING MESSAGE HANDLER
 	// ─────────────────────────────────────────────
 
 	private void handleIncoming(Message msg) {
@@ -295,7 +280,9 @@ public class GuiClient extends Application {
 			}
 
 			case username_taken: {
+				// Show error and re-enable button so they can try again
 				usernameErrLabel.setText("! " + msg.getContent().toUpperCase());
+				if (usernameBtn != null) usernameBtn.setDisable(false);
 				primaryStage.setScene(sceneMap.get("username"));
 				break;
 			}
@@ -407,6 +394,7 @@ public class GuiClient extends Application {
 				sound.playSFX(SoundManager.SFX.GAME_OVER);
 				sound.stopMusic();
 				board = null;
+				rematchRequested = false;
 				drawBoard();
 				statusLabel.setText("GAME OVER // " + msg.getContent().toUpperCase());
 				turnLabel.setText("");
@@ -420,8 +408,9 @@ public class GuiClient extends Application {
 				alert.getButtonTypes().setAll(rematch, backToLobby);
 				alert.showAndWait().ifPresent(result -> {
 					if (result == rematch) {
+						rematchRequested = true;
 						clientConnection.send(Message.rematchRequest(username));
-						statusLabel.setText("> REMATCH REQUESTED...");
+						statusLabel.setText("> REMATCH REQUESTED... WAITING FOR OPPONENT.");
 					} else {
 						clientConnection.send(Message.rematchDecline(username));
 						returnToLobby();
@@ -431,6 +420,10 @@ public class GuiClient extends Application {
 			}
 
 			case rematch_offer: {
+				if (rematchRequested) {
+					clientConnection.send(Message.rematchAccept(username));
+					break;
+				}
 				Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
 				alert.setTitle("REMATCH?");
 				alert.setHeaderText("🔄 " + msg.getContent().toUpperCase());
@@ -460,9 +453,8 @@ public class GuiClient extends Application {
 						try { unread = Integer.parseInt(current.replaceAll(".*\\((\\d+)\\).*", "$1")) + 1; }
 						catch (NumberFormatException ignored) {}
 					}
-					toggleChat.setText("💬 COMMS ▶ (" + unread + ")");
-					// Same format as normal button, just pink instead of cyan
-					toggleChat.setStyle("-fx-background-color: #1a1a2e; -fx-text-fill: " + NEON_PINK + "; -fx-font-family: monospace; -fx-font-size: 10px; -fx-border-color: " + NEON_PINK + "; -fx-border-width: 1px;");
+					toggleChat.setText("💬 CHAT ▶ (" + unread + ")");
+					toggleChat.setStyle("-fx-background-color: " + NEON_PINK + "; -fx-text-fill: " + BG_DARK + "; -fx-font-family: monospace; -fx-font-size: 11px; -fx-font-weight: bold;");
 				}
 				break;
 			}
@@ -474,6 +466,7 @@ public class GuiClient extends Application {
 
 	private void returnToLobby() {
 		board = null;
+		rematchRequested = false;
 		myColor = -1;
 		currentTurn = -1;
 		redPlayer = null;
@@ -489,7 +482,7 @@ public class GuiClient extends Application {
 	}
 
 	// ─────────────────────────────────────────────
-	//  BOARD CLICK HANDLER  (logic unchanged)
+	//  BOARD CLICK HANDLER
 	// ─────────────────────────────────────────────
 
 	private void handleBoardClick(double x, double y) {
@@ -550,7 +543,7 @@ public class GuiClient extends Application {
 	}
 
 	// ─────────────────────────────────────────────
-	//  DRAW BOARD  (cyberpunk colors, same logic)
+	//  DRAW BOARD
 	// ─────────────────────────────────────────────
 
 	private void drawBoard() {
@@ -560,7 +553,6 @@ public class GuiClient extends Application {
 		if (board == null) {
 			gc.setFill(Color.web(BG_DARK));
 			gc.fillRect(0, 0, BOARD_SIZE, BOARD_SIZE);
-			// Neon grid lines for "waiting" screen
 			gc.setStroke(Color.web(NEON_PURPLE, 0.3));
 			gc.setLineWidth(1);
 			for (int i = 0; i <= 8; i++) {
@@ -579,11 +571,9 @@ public class GuiClient extends Application {
 				int dispCol = toDisplayCol(col);
 				boolean isDark = (dispRow + dispCol) % 2 == 1;
 
-				// Cyberpunk board: dark navy vs deep purple
 				gc.setFill(isDark ? Color.web("#0d0d2b") : Color.web("#1a0a2e"));
 				gc.fillRect(dispCol * TILE, dispRow * TILE, TILE, TILE);
 
-				// Subtle neon grid lines
 				gc.setStroke(Color.web(NEON_PURPLE, 0.25));
 				gc.setLineWidth(0.5);
 				gc.strokeRect(dispCol * TILE, dispRow * TILE, TILE, TILE);
@@ -593,7 +583,6 @@ public class GuiClient extends Application {
 					drawPiece(gc, dispRow, dispCol, piece);
 				}
 
-				// Neon yellow highlight for selected piece
 				if (pieceSelected && row == selectedRow && col == selectedCol) {
 					gc.setFill(Color.web(NEON_YELLOW, 0.35));
 					gc.fillRect(dispCol * TILE, dispRow * TILE, TILE, TILE);
@@ -610,19 +599,16 @@ public class GuiClient extends Application {
 		double y = row * TILE + TILE * 0.1;
 		double size = TILE * 0.8;
 
-		// Glow shadow
 		gc.setFill(Color.color(0, 0, 0, 0.5));
 		gc.fillOval(x + 4, y + 4, size, size);
 
 		if (piece == CheckersConstants.RED || piece == CheckersConstants.RED_KING) {
-			// Neon pink/red piece
 			gc.setFill(Color.web("#c0003a"));
 			gc.fillOval(x, y, size, size);
 			gc.setFill(Color.web(NEON_PINK, 0.6));
 			gc.fillOval(x + size * 0.15, y + size * 0.1, size * 0.5, size * 0.3);
 			gc.setStroke(Color.web(NEON_PINK));
 		} else {
-			// Neon cyan/black piece
 			gc.setFill(Color.web("#050520"));
 			gc.fillOval(x, y, size, size);
 			gc.setFill(Color.web(NEON_CYAN, 0.4));
@@ -633,7 +619,6 @@ public class GuiClient extends Application {
 		gc.setLineWidth(2.5);
 		gc.strokeOval(x + 2, y + 2, size - 4, size - 4);
 
-		// Inner ring
 		if (piece == CheckersConstants.RED || piece == CheckersConstants.RED_KING) {
 			gc.setStroke(Color.web(NEON_PINK, 0.4));
 		} else {
@@ -642,7 +627,6 @@ public class GuiClient extends Application {
 		gc.setLineWidth(1);
 		gc.strokeOval(x + 8, y + 8, size - 16, size - 16);
 
-		// King crown
 		if (piece == CheckersConstants.RED_KING || piece == CheckersConstants.BLACK_KING) {
 			gc.setFill(Color.web(NEON_YELLOW));
 			gc.setFont(Font.font("monospace", FontWeight.BOLD, 18));
@@ -705,18 +689,12 @@ public class GuiClient extends Application {
 		bottomBar.setPadding(new Insets(8));
 		bottomBar.setStyle("-fx-background-color: " + BG_PANEL + "; -fx-border-color: " + NEON_PURPLE + "; -fx-border-width: 1 0 0 0;");
 
-		// ── Chat panel ──────────────────────────
 		Label chatTitle = new Label("// COMMS //");
 		chatTitle.setStyle(glowLabel(NEON_CYAN) + "-fx-font-size: 12px;");
 
 		chatList = new ListView<>();
 		chatList.setPrefWidth(220);
-		chatList.setStyle(
-				"-fx-background-color: " + BG_DARK + "; " +
-						"-fx-control-inner-background: " + BG_DARK + "; " +
-						"-fx-border-color: " + NEON_PURPLE + "; " +
-						"-fx-border-width: 1px;"
-		);
+		chatList.setStyle("-fx-background-color: " + BG_DARK + "; -fx-control-inner-background: " + BG_DARK + "; -fx-border-color: " + NEON_PURPLE + "; -fx-border-width: 1px;");
 		chatList.setCellFactory(lv -> new ListCell<String>() {
 			@Override
 			protected void updateItem(String item, boolean empty) {
@@ -732,15 +710,7 @@ public class GuiClient extends Application {
 
 		chatInput = new TextField();
 		chatInput.setPromptText("transmit...");
-		chatInput.setStyle(
-				"-fx-background-color: #0d0d1a; " +
-						"-fx-text-fill: " + NEON_GREEN + "; " +
-						"-fx-prompt-text-fill: #334433; " +
-						"-fx-font-family: monospace; " +
-						"-fx-font-size: 11px; " +
-						"-fx-border-color: " + NEON_PURPLE + "; " +
-						"-fx-border-width: 1px;"
-		);
+		chatInput.setStyle("-fx-background-color: #0d0d1a; -fx-text-fill: " + NEON_GREEN + "; -fx-prompt-text-fill: #334433; -fx-font-family: monospace; -fx-font-size: 11px; -fx-border-color: " + NEON_PURPLE + "; -fx-border-width: 1px;");
 
 		chatSendBtn = new Button("TX");
 		chatSendBtn.setStyle(neonBtn(NEON_CYAN));
@@ -768,7 +738,6 @@ public class GuiClient extends Application {
 		chatPanel.setStyle("-fx-background-color: " + BG_PANEL + "; -fx-border-color: " + NEON_PURPLE + "; -fx-border-width: 0 0 0 1;");
 		chatPanel.setPrefWidth(240);
 
-		// ── Top bar ─────────────────────────────
 		Label gameTag = new Label("[ CHECKERS ARCADE ]");
 		gameTag.setStyle(glowLabel(NEON_PURPLE) + "-fx-font-size: 10px;");
 
