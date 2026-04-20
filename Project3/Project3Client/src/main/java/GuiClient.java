@@ -349,7 +349,7 @@ public class GuiClient extends Application {
 				chatList.getItems().clear();
 				primaryStage.setScene(sceneMap.get("client"));
 				primaryStage.setWidth(BOARD_SIZE + 40);
-				primaryStage.setHeight(BOARD_SIZE + 80);
+				primaryStage.setHeight(BOARD_SIZE + 110);
 				sound.playMusic("music_game.mp3");
 				sound.playSFX(SoundManager.SFX.GAME_START);
 				break;
@@ -768,6 +768,6 @@ public class GuiClient extends Application {
 		root.setRight(chatPanel);
 		root.setStyle("-fx-background-color: " + BG_DARK + ";");
 
-		return new Scene(root, BOARD_SIZE + 40, BOARD_SIZE + 80);
+		return new Scene(root, BOARD_SIZE + 40, BOARD_SIZE + 110);
 	}
 }
