@@ -46,6 +46,7 @@ public class GuiClient extends Application {
 	boolean pieceSelected = false;
 	boolean multiJumpActive = false;
 	boolean rematchRequested = false;
+	boolean lastMoveWasCapture = false;
 
 	Label usernameErrLabel = new Label("");
 	Button usernameBtn = null; // field so username_taken can re-enable it
@@ -360,6 +361,10 @@ public class GuiClient extends Application {
 				currentTurn = msg.getCurrentTurn();
 				int mjRow = msg.getMultiJumpRow();
 				int mjCol = msg.getMultiJumpCol();
+
+				sound.playSFX(lastMoveWasCapture ? SoundManager.SFX.CAPTURE : SoundManager.SFX.MOVE);
+				lastMoveWasCapture = false;
+
 				if (currentTurn == myColor) {
 					sound.playSFX(SoundManager.SFX.YOUR_TURN);
 				}
@@ -523,11 +528,7 @@ public class GuiClient extends Application {
 				return;
 			}
 			clientConnection.send(Message.makeMove(username, selectedRow, selectedCol, row, col));
-			if (Math.abs(row - selectedRow) == 2) {
-				sound.playSFX(SoundManager.SFX.CAPTURE);
-			} else {
-				sound.playSFX(SoundManager.SFX.MOVE);
-			}
+			lastMoveWasCapture = Math.abs(row - selectedRow) == 2;
 			if (!multiJumpActive) {
 				pieceSelected = false;
 				selectedRow = -1;
