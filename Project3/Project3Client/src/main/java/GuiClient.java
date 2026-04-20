@@ -64,6 +64,10 @@ public class GuiClient extends Application {
 	static final int TILE = 75;
 	static final int BOARD_SIZE = 8 * TILE;
 
+	SoundManager sound = new SoundManager();
+	Button lobbyMuteBtn;
+	Button gameMuteBtn;
+
 	public static void main(String[] args) {
 		launch(args);
 	}
@@ -258,7 +262,10 @@ public class GuiClient extends Application {
 		Label strip = new Label("▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓");
 		strip.setStyle("-fx-text-fill: #1a1a3a; -fx-font-family: monospace; -fx-font-size: 9px;");
 
-		VBox centerBox = new VBox(10, playersLabel, lobbyPlayerList, challengeBtn, lobbyStatus, strip);
+		Button lobbyMuteBtn = createMuteBtn(true);
+		lobbyMuteBtn.setMaxWidth(Double.MAX_VALUE);
+
+		VBox centerBox = new VBox(10, playersLabel, lobbyPlayerList, challengeBtn, lobbyStatus, lobbyMuteBtn, strip);
 		centerBox.setPadding(new Insets(10, 30, 20, 30));
 
 		VBox root = new VBox(titleBox, centerBox);
@@ -276,12 +283,14 @@ public class GuiClient extends Application {
 		switch (msg.getType()) {
 
 			case username_accepted: {
+				sound.playSFX(SoundManager.SFX.USERNAME_ACCEPTED);
 				username = msg.getContent();
 				primaryStage.setTitle("CHECKERS // " + username.toUpperCase());
 				primaryStage.setScene(sceneMap.get("lobby"));
 				primaryStage.setWidth(420);
 				primaryStage.setHeight(520);
 				lobbyStatus.setText("> WELCOME, " + username.toUpperCase() + "!");
+				sound.playMusic("music_lobby.mp3");
 				break;
 			}
 
@@ -302,6 +311,7 @@ public class GuiClient extends Application {
 			}
 
 			case challenge_receive: {
+				sound.playSFX(SoundManager.SFX.CHALLENGE);
 				String challenger = msg.getSenderUsername();
 				Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
 				alert.setTitle("INCOMING CHALLENGE");
@@ -353,6 +363,8 @@ public class GuiClient extends Application {
 				primaryStage.setScene(sceneMap.get("client"));
 				primaryStage.setWidth(BOARD_SIZE + 40);
 				primaryStage.setHeight(BOARD_SIZE + 80);
+				sound.playMusic("music_game.mp3");
+				sound.playSFX(SoundManager.SFX.GAME_START);
 				break;
 			}
 
@@ -361,7 +373,9 @@ public class GuiClient extends Application {
 				currentTurn = msg.getCurrentTurn();
 				int mjRow = msg.getMultiJumpRow();
 				int mjCol = msg.getMultiJumpCol();
-
+				if (currentTurn == myColor) {
+					sound.playSFX(SoundManager.SFX.YOUR_TURN);
+				}
 				if (currentTurn == myColor && mjRow != -1) {
 					selectedRow = mjRow;
 					selectedCol = mjCol;
@@ -380,6 +394,7 @@ public class GuiClient extends Application {
 			}
 
 			case invalid_move: {
+				sound.playSFX(SoundManager.SFX.INVALID);
 				statusLabel.setText("! INVALID: " + msg.getContent().toUpperCase());
 				selectedRow = -1;
 				selectedCol = -1;
@@ -389,6 +404,8 @@ public class GuiClient extends Application {
 			}
 
 			case game_over: {
+				sound.playSFX(SoundManager.SFX.GAME_OVER);
+				sound.stopMusic();
 				board = null;
 				drawBoard();
 				statusLabel.setText("GAME OVER // " + msg.getContent().toUpperCase());
@@ -433,6 +450,7 @@ public class GuiClient extends Application {
 			}
 
 			case chat: {
+				sound.playSFX(SoundManager.SFX.CHAT);
 				chatList.getItems().add(msg.getSenderUsername() + ": " + msg.getContent());
 				chatList.scrollTo(chatList.getItems().size() - 1);
 				if (!chatPanel.isVisible()) {
@@ -512,6 +530,11 @@ public class GuiClient extends Application {
 				return;
 			}
 			clientConnection.send(Message.makeMove(username, selectedRow, selectedCol, row, col));
+			if (Math.abs(row - selectedRow) == 2) {
+				sound.playSFX(SoundManager.SFX.CAPTURE);
+			} else {
+				sound.playSFX(SoundManager.SFX.MOVE);
+			}
 			if (!multiJumpActive) {
 				pieceSelected = false;
 				selectedRow = -1;
@@ -638,6 +661,24 @@ public class GuiClient extends Application {
 		}
 	}
 
+	private Button createMuteBtn(boolean isLobby) {
+		Button btn = new Button(sound.isMuted() ? "🔇 MUTED" : "🔊 SOUND");
+		btn.setStyle("-fx-background-color: #1a1a2e; -fx-text-fill: " + NEON_YELLOW +
+				"; -fx-font-family: monospace; -fx-font-size: 10px; -fx-border-color: " +
+				NEON_YELLOW + "; -fx-border-width: 1px;");
+		btn.setOnAction(e -> applyMuteToggle());
+		if (isLobby) lobbyMuteBtn = btn;
+		else gameMuteBtn = btn;
+		return btn;
+	}
+
+	private void applyMuteToggle() {
+		sound.toggleMute();
+		String label = sound.isMuted() ? "🔇 MUTED" : "🔊 SOUND";
+		if (lobbyMuteBtn != null) lobbyMuteBtn.setText(label);
+		if (gameMuteBtn != null) gameMuteBtn.setText(label);
+	}
+
 	private int toDisplayRow(int actualRow) { return myColor == CheckersConstants.BLACK ? 7 - actualRow : actualRow; }
 	private int toDisplayCol(int actualCol) { return myColor == CheckersConstants.BLACK ? 7 - actualCol : actualCol; }
 	private int toActualRow(int displayRow) { return myColor == CheckersConstants.BLACK ? 7 - displayRow : displayRow; }
@@ -743,7 +784,9 @@ public class GuiClient extends Application {
 			stage.setWidth(visible ? BOARD_SIZE + 40 : BOARD_SIZE + 280);
 		});
 
-		HBox topBar = new HBox(gameTag, toggleChat);
+		Button gameMuteBtn = createMuteBtn(false);
+
+		HBox topBar = new HBox(gameTag, gameMuteBtn, toggleChat);
 		topBar.setAlignment(Pos.CENTER_RIGHT);
 		HBox.setHgrow(gameTag, Priority.ALWAYS);
 		topBar.setPadding(new Insets(6, 10, 6, 10));
