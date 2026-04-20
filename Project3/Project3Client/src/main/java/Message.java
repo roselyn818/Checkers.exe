@@ -227,6 +227,13 @@ public class Message implements Serializable {
         return m;
     }
 
+    public static Message gameDraw() {
+        Message m = new Message(MessageType.game_over);
+        m.winner = null;
+        m.content = "It's a draw! Both players have no moves.";
+        return m;
+    }
+
     // ---- Getters ----
 
     public MessageType getType() { return type; }

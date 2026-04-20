@@ -100,35 +100,41 @@ public class CheckersGame implements Serializable {
     // Checks if the current player (after turn switch) has any moves at all
     private void checkNoMoves() {
         if (gameOver) return;
-        boolean hasMoves = hasAnyMove(currentTurn);
-        if (!hasMoves) {
+        boolean currentHasMoves = hasAnyMove(currentTurn);
+        if (!currentHasMoves) {
+            // Check if the OTHER player also has no moves → draw
+            int otherColor = (currentTurn == RED) ? BLACK : RED;
+            boolean otherHasMoves = hasAnyMove(otherColor);
             gameOver = true;
-            // Current player is stuck — the OTHER player wins
-            winner = (currentTurn == RED) ? blackPlayer : redPlayer;
-            System.out.println("[CheckersGame] No moves for " +
-                    (currentTurn == RED ? redPlayer : blackPlayer) +
-                    " — winner: " + winner);
+            if (!otherHasMoves) {
+                winner = null; // draw
+            } else {
+                winner = (currentTurn == RED) ? blackPlayer : redPlayer;
+            }
         }
     }
 
     // Returns true if the given color has at least one valid move anywhere on the board
-    private boolean hasAnyMove(int playerColor) {
+    public boolean hasAnyMove(int playerColor) {
+        System.out.println("=== hasAnyMove called for playerColor=" + playerColor + " ===");
         for (int row = 0; row < 8; row++) {
             for (int col = 0; col < 8; col++) {
                 int piece = board[row][col];
                 if (piece != playerColor && piece != getKingColor(playerColor)) continue;
-
                 int[] dirs = getDirections(piece);
                 for (int dr : dirs) {
                     for (int dc : new int[]{-1, 1}) {
-                        // Normal move
-                        if (isValidMove(row, col, row + dr, col + dc, playerColor)) return true;
-                        // Jump move
-                        if (isValidMove(row, col, row + dr * 2, col + dc * 2, playerColor)) return true;
+                        if (isValidMove(row, col, row + dr, col + dc, playerColor)) {
+                            return true;
+                        }
+                        if (isValidMove(row, col, row + dr * 2, col + dc * 2, playerColor)) {
+                            return true;
+                        }
                     }
                 }
             }
         }
+        System.out.println("  NO MOVES FOUND for playerColor=" + playerColor);
         return false;
     }
 

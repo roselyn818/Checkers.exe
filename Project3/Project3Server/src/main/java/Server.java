@@ -74,6 +74,7 @@ public class Server {
 		Message startMsg = Message.gameStart(player1.username, player2.username, game.getBoard());
 		player1.send(startMsg);
 		player2.send(startMsg);
+		checkAndSendGameOverIfNoMoves();
 	}
 
 	synchronized void handleMove(ClientThread sender, Message msg) {
@@ -85,6 +86,10 @@ public class Server {
 			sender.send(Message.invalidMove("Game is already over."));
 			return;
 		}
+
+		// Check if current turn player is already stuck (no valid moves)
+		checkAndSendGameOverIfNoMoves();
+		if (game == null) return; // game was ended above
 
 		boolean valid = game.makeMove(
 				msg.getSenderUsername(),
@@ -100,21 +105,45 @@ public class Server {
 		callback.accept(msg.getSenderUsername() + " moved: (" + msg.getFromRow() + "," + msg.getFromCol() + ") -> (" + msg.getToRow() + "," + msg.getToCol() + ")");
 
 		if (game.isGameOver()) {
-			Message gameOverMsg = Message.gameOver(game.getWinner());
+			String winner = game.getWinner();
+			Message gameOverMsg = (winner == null) ? Message.gameDraw() : Message.gameOver(winner);
 			player1.send(gameOverMsg);
 			player2.send(gameOverMsg);
-			callback.accept("Game over! Winner: " + game.getWinner());
-			// Don't null out player1/player2 yet — needed for rematch
+			callback.accept("Game over! Result: " + (winner != null ? winner + " wins" : "Draw"));
 			game = null;
-		} else {
-			// Send multi-jump state so client can lock piece if needed
-			Message stateMsg = Message.gameState(
-					game.getBoard(), game.getCurrentTurn(),
-					game.getRedPlayer(), game.getBlackPlayer(),
-					game.getMultiJumpRow(), game.getMultiJumpCol()
-			);
-			player1.send(stateMsg);
-			player2.send(stateMsg);
+			return;
+		}
+
+		Message stateMsg = Message.gameState(
+				game.getBoard(), game.getCurrentTurn(),
+				game.getRedPlayer(), game.getBlackPlayer(),
+				game.getMultiJumpRow(), game.getMultiJumpCol()
+		);
+		player1.send(stateMsg);
+		player2.send(stateMsg);
+
+		// Check if next player has no moves after state update
+		checkAndSendGameOverIfNoMoves();
+	}
+
+	private void checkAndSendGameOverIfNoMoves() {
+		if (game == null) return;
+		int current = game.getCurrentTurn();
+		boolean currentHas = game.hasAnyMove(current);
+		if (!game.hasAnyMove(current)) {
+			int other = (current == CheckersGame.RED) ? CheckersGame.BLACK : CheckersGame.RED;
+			Message gameOverMsg;
+			if (!game.hasAnyMove(other)) {
+				gameOverMsg = Message.gameDraw();
+				callback.accept("Game over! Draw — neither player has moves.");
+			} else {
+				String winner = (current == CheckersGame.RED) ? game.getBlackPlayer() : game.getRedPlayer();
+				gameOverMsg = Message.gameOver(winner);
+				callback.accept("Game over! " + winner + " wins — opponent has no moves.");
+			}
+			player1.send(gameOverMsg);
+			player2.send(gameOverMsg);
+			game = null;
 		}
 	}
 
