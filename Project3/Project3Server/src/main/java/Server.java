@@ -83,6 +83,7 @@ public class Server {
 		client.aiGame = new CheckersGame(client.username, "A.I.");
 		client.ai = new CheckersAI(difficulty);
 		client.inAiGame = true;
+		client.lastAiDifficulty = difficulty;
 		callback.accept("AI game started: " + client.username + " (RED) vs A.I. [" + difficulty + "]");
 		Message startMsg = Message.gameStart(client.username, "A.I.", client.aiGame.getBoard());
 		client.send(startMsg);
@@ -277,6 +278,7 @@ public class Server {
 		CheckersGame aiGame = null;
 		CheckersAI ai = null;
 		boolean inAiGame = false;
+		CheckersAI.Difficulty lastAiDifficulty = null; // persists after game ends for rematch
 
 		ClientThread(Socket s, int count) {
 			this.connection = s;
@@ -360,9 +362,12 @@ public class Server {
 				}
 
 				case rematch_request: {
-					// If they were in an AI game, restart it
-					if (inAiGame || aiGame != null) {
-						CheckersAI.Difficulty diff = (ai != null) ? ai.getDifficulty() : CheckersAI.Difficulty.MEDIUM;
+					// Use lastAiDifficulty to detect AI rematch — inAiGame/aiGame are already null by the time rematch is clicked
+					if (lastAiDifficulty != null) {
+						CheckersAI.Difficulty diff = lastAiDifficulty;
+						aiGame = null;
+						ai = null;
+						inAiGame = false;
 						startAiGame(this, diff);
 					} else {
 						handleRematch(this);
@@ -371,11 +376,11 @@ public class Server {
 				}
 
 				case rematch_decline: {
-					if (inAiGame || aiGame != null) {
-						// Clean up AI game and return to lobby
+					if (inAiGame || aiGame != null || lastAiDifficulty != null) {
 						aiGame = null;
 						ai = null;
 						inAiGame = false;
+						lastAiDifficulty = null;
 						broadcastLobbyUpdate();
 					} else {
 						handleRematchDecline(this);
