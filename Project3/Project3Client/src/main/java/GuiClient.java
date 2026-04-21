@@ -403,6 +403,7 @@ public class GuiClient extends Application {
 				statusLabel.setText("PLAYER: " + (myColor == CheckersConstants.RED ? "🔴 RED" : "⚫ BLACK")
 						+ (blackPlayer.equals("A.I.") ? "  //  VS A.I." : ""));
 				multiJumpActive = false;
+				rematchRequested = false;
 				selectedRow = -1;
 				selectedCol = -1;
 				pieceSelected = false;

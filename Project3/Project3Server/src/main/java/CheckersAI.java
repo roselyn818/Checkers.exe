@@ -4,7 +4,7 @@ import java.util.ArrayList;
 public class CheckersAI {
 
     public enum Difficulty {
-        EASY(2), MEDIUM(4), HARD(6);
+        EASY(1), MEDIUM(3), HARD(6);
         final int depth;
         Difficulty(int depth) { this.depth = depth; }
     }
@@ -21,6 +21,11 @@ public class CheckersAI {
     public int[] getBestMove(int[][] board, int color) {
         List<int[]> moves = getAllMoves(board, color);
         if (moves.isEmpty()) return null;
+
+        // Easy mode: 40% chance to just pick a random move so it feels beatable
+        if (difficulty == Difficulty.EASY && Math.random() < 0.4) {
+            return moves.get((int)(Math.random() * moves.size()));
+        }
 
         int bestScore = Integer.MIN_VALUE;
         int[] bestMove = moves.get(0);
