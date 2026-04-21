@@ -49,7 +49,7 @@ public class GuiClient extends Application {
 	boolean lastMoveWasCapture = false;
 
 	Label usernameErrLabel = new Label("");
-	Button usernameBtn = null; // field so username_taken can re-enable it
+	Button usernameBtn = null;
 
 	Canvas boardCanvas;
 	Label statusLabel;
@@ -129,7 +129,7 @@ public class GuiClient extends Application {
 		Label title = new Label("INSERT COIN");
 		title.setStyle("-fx-text-fill: " + NEON_PINK + "; -fx-font-family: monospace; -fx-font-size: 36px; -fx-font-weight: bold;");
 
-		Label subtitle = new Label("// ONLINE MULTIPLAYER //");
+		Label subtitle = new Label("// CHOOSE YOUR MODE //");
 		subtitle.setStyle("-fx-text-fill: " + NEON_PURPLE + "; -fx-font-family: monospace; -fx-font-size: 12px;");
 
 		Label prompt = new Label("> ENTER PLAYER TAG:");
@@ -149,14 +149,53 @@ public class GuiClient extends Application {
 						"-fx-border-width: 1px;"
 		);
 
-		// Store as field so username_taken can re-enable it
-		usernameBtn = new Button(">> START GAME <<");
+		// ── Two mode buttons ──────────────────────────────────────────────────
+		usernameBtn = new Button("MULTIPLAYER");
 		usernameBtn.setMaxWidth(280);
 		usernameBtn.setStyle(neonBtn(NEON_PINK));
+
+		Button singleBtn = new Button("SINGLE PLAYER");
+		singleBtn.setMaxWidth(280);
+		singleBtn.setStyle(neonBtn(NEON_CYAN));
 
 		usernameErrLabel.setStyle("-fx-text-fill: " + NEON_PINK + "; -fx-font-family: monospace; -fx-font-size: 11px;");
 		usernameErrLabel.setText("");
 
+		// ── Difficulty picker — hidden until VS AI clicked ────────────────────
+		Label diffLabel = new Label("> SELECT DIFFICULTY:");
+		diffLabel.setStyle(glowLabel(NEON_YELLOW) + "-fx-font-size: 11px;");
+
+		String diffBase = "-fx-font-family: monospace; -fx-font-size: 12px; -fx-font-weight: bold; " +
+				"-fx-background-color: #1a1a2e; -fx-padding: 8px 14px; -fx-cursor: hand; -fx-border-width: 1px;";
+
+		Button easyBtn   = new Button("[ EASY ]");
+		Button mediumBtn = new Button("[ MEDIUM ]");
+		Button hardBtn   = new Button("[ HARD ]");
+		easyBtn  .setStyle(diffBase + "-fx-text-fill: " + NEON_GREEN  + "; -fx-border-color: " + NEON_GREEN  + ";");
+		mediumBtn.setStyle(diffBase + "-fx-text-fill: " + NEON_YELLOW + "; -fx-border-color: " + NEON_YELLOW + ";");
+		hardBtn  .setStyle(diffBase + "-fx-text-fill: " + NEON_PINK   + "; -fx-border-color: " + NEON_PINK   + ";");
+
+		HBox diffRow = new HBox(10, easyBtn, mediumBtn, hardBtn);
+		diffRow.setAlignment(Pos.CENTER);
+
+		VBox diffPicker = new VBox(8, diffLabel, diffRow);
+		diffPicker.setAlignment(Pos.CENTER);
+		diffPicker.setVisible(false);
+		diffPicker.setManaged(false);
+
+		// VS AI clicked → show difficulty picker
+		singleBtn.setOnAction(e -> {
+			String name = nameField.getText().trim();
+			if (name.isEmpty()) { usernameErrLabel.setText("! USERNAME CANNOT BE EMPTY"); return; }
+			usernameErrLabel.setText("");
+			diffPicker.setVisible(true);
+			diffPicker.setManaged(true);
+			singleBtn.setDisable(true);
+			usernameBtn.setDisable(true);
+			primaryStage.setHeight(620);
+		});
+
+		// Multiplayer — same as original
 		usernameBtn.setOnAction(e -> {
 			String name = nameField.getText().trim();
 			if (name.isEmpty()) { usernameErrLabel.setText("! USERNAME CANNOT BE EMPTY"); return; }
@@ -164,21 +203,36 @@ public class GuiClient extends Application {
 			usernameErrLabel.setText("");
 			clientConnection.send(Message.setUsername(name));
 		});
+
 		nameField.setOnAction(e -> usernameBtn.fire());
+
+		// Difficulty selected → set username then request AI game
+		easyBtn  .setOnAction(e -> sendAiRequest(nameField.getText().trim(), "EASY"));
+		mediumBtn.setOnAction(e -> sendAiRequest(nameField.getText().trim(), "MEDIUM"));
+		hardBtn  .setOnAction(e -> sendAiRequest(nameField.getText().trim(), "HARD"));
 
 		Label scanline = new Label("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 		scanline.setStyle("-fx-text-fill: #222244; -fx-font-family: monospace; -fx-font-size: 10px;");
 
-		VBox box = new VBox(14, arcade, title, subtitle, scanline, prompt, nameField, usernameBtn, usernameErrLabel);
-		box.setPadding(new Insets(70, 60, 40, 60));
+		VBox box = new VBox(14, arcade, title, subtitle, scanline, prompt, nameField,
+				usernameBtn, singleBtn, diffPicker, usernameErrLabel);
+		box.setPadding(new Insets(60, 60, 40, 60));
 		box.setStyle("-fx-background-color: " + BG_DARK + ";");
 		box.setAlignment(Pos.CENTER);
 
-		return new Scene(box, 420, 520);
+		return new Scene(box, 420, 540);
+	}
+
+	// Sends username first, then the AI game request.
+	// The server handles both in sequence on the same connection.
+	private void sendAiRequest(String name, String difficulty) {
+		if (name.isEmpty()) { usernameErrLabel.setText("! USERNAME CANNOT BE EMPTY"); return; }
+		clientConnection.send(Message.setUsername(name));
+		clientConnection.send(Message.startAiGame(name, difficulty));
 	}
 
 	// ─────────────────────────────────────────────
-	//  LOBBY SCENE
+	//  LOBBY SCENE  (unchanged)
 	// ─────────────────────────────────────────────
 
 	private Scene createLobbyScene() {
@@ -262,7 +316,7 @@ public class GuiClient extends Application {
 	}
 
 	// ─────────────────────────────────────────────
-	//  INCOMING MESSAGE HANDLER
+	//  INCOMING MESSAGE HANDLER  (unchanged)
 	// ─────────────────────────────────────────────
 
 	private void handleIncoming(Message msg) {
@@ -272,23 +326,30 @@ public class GuiClient extends Application {
 				sound.playSFX(SoundManager.SFX.USERNAME_ACCEPTED);
 				username = msg.getContent();
 				primaryStage.setTitle("CHECKERS // " + username.toUpperCase());
-				primaryStage.setScene(sceneMap.get("lobby"));
-				primaryStage.setWidth(420);
-				primaryStage.setHeight(520);
-				lobbyStatus.setText("> WELCOME, " + username.toUpperCase() + "!");
-				sound.playMusic("music_lobby.mp3");
+				// Don't navigate to lobby yet if an AI game request is also in flight —
+				// the game_start message will arrive shortly and take us straight to the board.
+				// We only go to lobby for multiplayer.
 				break;
 			}
 
 			case username_taken: {
-				// Show error and re-enable button so they can try again
 				usernameErrLabel.setText("! " + msg.getContent().toUpperCase());
 				if (usernameBtn != null) usernameBtn.setDisable(false);
+				// Rebuild so the buttons are re-enabled
+				sceneMap.put("username", createUsernameScene());
 				primaryStage.setScene(sceneMap.get("username"));
+				primaryStage.setHeight(540);
 				break;
 			}
 
 			case lobby_update: {
+				// Only switch to lobby scene if we're not already there or in a game
+				if (primaryStage.getScene() == sceneMap.get("username")) {
+					primaryStage.setScene(sceneMap.get("lobby"));
+					primaryStage.setWidth(420);
+					primaryStage.setHeight(520);
+					sound.playMusic("music_lobby.mp3");
+				}
 				List<String> players = msg.getPlayerList();
 				players.removeIf(p -> p.equals(username));
 				lobbyPlayerList.getItems().setAll(players);
@@ -339,15 +400,18 @@ public class GuiClient extends Application {
 				board = msg.getBoard();
 				currentTurn = CheckersConstants.RED;
 				myColor = username.equals(redPlayer) ? CheckersConstants.RED : CheckersConstants.BLACK;
-				statusLabel.setText("PLAYER: " + (myColor == CheckersConstants.RED ? "🔴 RED" : "⚫ BLACK"));
+				statusLabel.setText("PLAYER: " + (myColor == CheckersConstants.RED ? "🔴 RED" : "⚫ BLACK")
+						+ (blackPlayer.equals("A.I.") ? "  //  VS A.I." : ""));
 				multiJumpActive = false;
 				selectedRow = -1;
 				selectedCol = -1;
 				pieceSelected = false;
 				updateTurnLabel();
 				drawBoard();
-				chatSendBtn.setDisable(false);
+				// Disable chat in AI mode
+				chatSendBtn.setDisable(blackPlayer.equals("A.I."));
 				chatList.getItems().clear();
+				if (blackPlayer.equals("A.I.")) chatList.getItems().add("// VS A.I. MODE //");
 				primaryStage.setScene(sceneMap.get("client"));
 				primaryStage.setWidth(BOARD_SIZE + 40);
 				primaryStage.setHeight(BOARD_SIZE + 110);
@@ -404,21 +468,24 @@ public class GuiClient extends Application {
 				statusLabel.setText("GAME OVER // " + msg.getContent().toUpperCase());
 				turnLabel.setText("");
 
+				boolean isAiGame = "A.I.".equals(blackPlayer);
+
 				Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
 				alert.setTitle("GAME OVER");
 				alert.setHeaderText("🏆 " + msg.getContent().toUpperCase());
 				alert.setContentText("Continue playing?");
-				ButtonType rematch = new ButtonType("REMATCH 🔄");
-				ButtonType backToLobby = new ButtonType("LOBBY");
-				alert.getButtonTypes().setAll(rematch, backToLobby);
+				ButtonType rematch    = new ButtonType("REMATCH 🔄");
+				ButtonType backBtn    = new ButtonType(isAiGame ? "MAIN MENU" : "LOBBY");
+				alert.getButtonTypes().setAll(rematch, backBtn);
 				alert.showAndWait().ifPresent(result -> {
 					if (result == rematch) {
 						rematchRequested = true;
 						clientConnection.send(Message.rematchRequest(username));
-						statusLabel.setText("> REMATCH REQUESTED... WAITING FOR OPPONENT.");
+						statusLabel.setText("> REMATCH REQUESTED...");
 					} else {
 						clientConnection.send(Message.rematchDecline(username));
-						returnToLobby();
+						if (isAiGame) returnToUsernameScreen();
+						else          returnToLobby();
 					}
 				});
 				break;
@@ -486,8 +553,28 @@ public class GuiClient extends Application {
 		primaryStage.setHeight(520);
 	}
 
+	private void returnToUsernameScreen() {
+		board = null;
+		rematchRequested = false;
+		myColor = -1;
+		currentTurn = -1;
+		redPlayer = null;
+		blackPlayer = null;
+		pieceSelected = false;
+		multiJumpActive = false;
+		selectedRow = -1;
+		selectedCol = -1;
+		drawBoard();
+		sound.stopMusic();
+		sceneMap.put("username", createUsernameScene());
+		primaryStage.setScene(sceneMap.get("username"));
+		primaryStage.setTitle("CHECKERS // ARCADE");
+		primaryStage.setWidth(420);
+		primaryStage.setHeight(540);
+	}
+
 	// ─────────────────────────────────────────────
-	//  BOARD CLICK HANDLER
+	//  BOARD CLICK HANDLER  (unchanged)
 	// ─────────────────────────────────────────────
 
 	private void handleBoardClick(double x, double y) {
@@ -544,7 +631,7 @@ public class GuiClient extends Application {
 	}
 
 	// ─────────────────────────────────────────────
-	//  DRAW BOARD
+	//  DRAW BOARD  (unchanged)
 	// ─────────────────────────────────────────────
 
 	private void drawBoard() {
@@ -670,7 +757,7 @@ public class GuiClient extends Application {
 	private int toActualCol(int displayCol) { return myColor == CheckersConstants.BLACK ? 7 - displayCol : displayCol; }
 
 	// ─────────────────────────────────────────────
-	//  GAME GUI
+	//  GAME GUI  (unchanged)
 	// ─────────────────────────────────────────────
 
 	public Scene createClientGui() {

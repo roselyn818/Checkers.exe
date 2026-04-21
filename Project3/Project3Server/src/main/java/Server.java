@@ -14,7 +14,7 @@ public class Server {
 	TheServer server;
 	private Consumer<Serializable> callback;
 
-	// Active game
+	// Active multiplayer game
 	ClientThread player1 = null;
 	ClientThread player2 = null;
 	CheckersGame game = null;
@@ -50,20 +50,21 @@ public class Server {
 	synchronized void broadcastLobbyUpdate() {
 		List<String> lobbyPlayers = new ArrayList<>();
 		for (ClientThread c : clients) {
-			if (c.username != null && c != player1 && c != player2) {
+			// Exclude players in multiplayer games AND players in AI games
+			if (c.username != null && c != player1 && c != player2 && !c.inAiGame) {
 				lobbyPlayers.add(c.username);
 			}
 		}
 		Message update = Message.lobbyUpdate(lobbyPlayers);
 		for (ClientThread c : clients) {
-			if (c.username != null && c != player1 && c != player2) {
+			if (c.username != null && c != player1 && c != player2 && !c.inAiGame) {
 				c.send(update);
 			}
 		}
 		callback.accept("Lobby updated: " + lobbyPlayers);
 	}
 
-	// Starts a game between two specific players (used for both challenges and rematches)
+	// Starts a multiplayer game between two specific players
 	synchronized void startGame(ClientThread p1, ClientThread p2) {
 		player1 = p1;
 		player2 = p2;
@@ -77,6 +78,17 @@ public class Server {
 		checkAndSendGameOverIfNoMoves();
 	}
 
+	// Starts an AI game for a single client
+	synchronized void startAiGame(ClientThread client, CheckersAI.Difficulty difficulty) {
+		client.aiGame = new CheckersGame(client.username, "A.I.");
+		client.ai = new CheckersAI(difficulty);
+		client.inAiGame = true;
+		callback.accept("AI game started: " + client.username + " (RED) vs A.I. [" + difficulty + "]");
+		Message startMsg = Message.gameStart(client.username, "A.I.", client.aiGame.getBoard());
+		client.send(startMsg);
+		broadcastLobbyUpdate();
+	}
+
 	synchronized void handleMove(ClientThread sender, Message msg) {
 		if (game == null) {
 			sender.send(Message.invalidMove("Game has not started yet."));
@@ -87,9 +99,8 @@ public class Server {
 			return;
 		}
 
-		// Check if current turn player is already stuck (no valid moves)
 		checkAndSendGameOverIfNoMoves();
-		if (game == null) return; // game was ended above
+		if (game == null) return;
 
 		boolean valid = game.makeMove(
 				msg.getSenderUsername(),
@@ -122,14 +133,94 @@ public class Server {
 		player1.send(stateMsg);
 		player2.send(stateMsg);
 
-		// Check if next player has no moves after state update
 		checkAndSendGameOverIfNoMoves();
+	}
+
+	// Handles a human move in an AI game, then triggers the AI response
+	synchronized void handleAiMove(ClientThread sender, Message msg) {
+		CheckersGame aiGame = sender.aiGame;
+		if (aiGame == null || aiGame.isGameOver()) {
+			sender.send(Message.invalidMove("AI game is not active."));
+			return;
+		}
+
+		boolean valid = aiGame.makeMove(
+				msg.getSenderUsername(),
+				msg.getFromRow(), msg.getFromCol(),
+				msg.getToRow(), msg.getToCol()
+		);
+
+		if (!valid) {
+			sender.send(Message.invalidMove("That move is not valid."));
+			return;
+		}
+
+		callback.accept("[AI Game] " + msg.getSenderUsername() + " moved: (" + msg.getFromRow() + "," + msg.getFromCol() + ") -> (" + msg.getToRow() + "," + msg.getToCol() + ")");
+
+		if (aiGame.isGameOver()) {
+			sendAiGameOver(sender);
+			return;
+		}
+
+		// If human is in a multi-jump, send state back and wait for next human move
+		if (aiGame.getMultiJumpRow() != -1) {
+			sender.send(Message.gameState(
+					aiGame.getBoard(), aiGame.getCurrentTurn(),
+					aiGame.getRedPlayer(), aiGame.getBlackPlayer(),
+					aiGame.getMultiJumpRow(), aiGame.getMultiJumpCol()
+			));
+			return;
+		}
+
+		// Now it's the AI's turn — run minimax (possibly multiple times for multi-jump)
+		runAiTurn(sender);
+	}
+
+	// Runs AI move(s) until AI's turn is done or the game ends
+	private void runAiTurn(ClientThread sender) {
+		CheckersGame aiGame = sender.aiGame;
+		CheckersAI ai = sender.ai;
+
+		while (aiGame.getCurrentTurn() == CheckersGame.BLACK && !aiGame.isGameOver()) {
+			int[] move = ai.getBestMove(aiGame.getBoard(), CheckersGame.BLACK);
+			if (move == null) break; // AI has no moves
+
+			boolean ok = aiGame.makeMove("A.I.", move[0], move[1], move[2], move[3]);
+			if (!ok) break;
+
+			callback.accept("[AI Game] A.I. moved: (" + move[0] + "," + move[1] + ") -> (" + move[2] + "," + move[3] + ")");
+
+			if (aiGame.isGameOver()) {
+				sendAiGameOver(sender);
+				return;
+			}
+
+			// If AI can multi-jump, loop continues — it keeps going until done
+			if (aiGame.getMultiJumpRow() == -1) break;
+		}
+
+		// Send updated state back to human player
+		sender.send(Message.gameState(
+				aiGame.getBoard(), aiGame.getCurrentTurn(),
+				aiGame.getRedPlayer(), aiGame.getBlackPlayer(),
+				aiGame.getMultiJumpRow(), aiGame.getMultiJumpCol()
+		));
+	}
+
+	private void sendAiGameOver(ClientThread sender) {
+		String winner = sender.aiGame.getWinner();
+		Message gameOverMsg = (winner == null) ? Message.gameDraw() : Message.gameOver(winner);
+		sender.send(gameOverMsg);
+		callback.accept("[AI Game] Game over! Result: " + (winner != null ? winner + " wins" : "Draw"));
+		sender.aiGame = null;
+		sender.ai = null;
+		sender.inAiGame = false;
+		broadcastLobbyUpdate();
 	}
 
 	private void checkAndSendGameOverIfNoMoves() {
 		if (game == null) return;
 		int current = game.getCurrentTurn();
-		boolean currentHas = game.hasAnyMove(current);
 		if (!game.hasAnyMove(current)) {
 			int other = (current == CheckersGame.RED) ? CheckersGame.BLACK : CheckersGame.RED;
 			Message gameOverMsg;
@@ -164,9 +255,7 @@ public class Server {
 
 	synchronized void handleRematchDecline(ClientThread sender) {
 		ClientThread other = (sender == player1) ? player2 : player1;
-		if (other != null) {
-			other.send(Message.challengeDeclined(sender.username));
-		}
+		if (other != null) other.send(Message.challengeDeclined(sender.username));
 		player1 = null;
 		player2 = null;
 		game = null;
@@ -183,6 +272,11 @@ public class Server {
 		ObjectInputStream in;
 		ObjectOutputStream out;
 		String username = null;
+
+		// AI game state — per-client, not shared
+		CheckersGame aiGame = null;
+		CheckersAI ai = null;
+		boolean inAiGame = false;
 
 		ClientThread(Socket s, int count) {
 			this.connection = s;
@@ -243,6 +337,52 @@ public class Server {
 					break;
 				}
 
+				case start_ai_game: {
+					String diffStr = msg.getContent();
+					CheckersAI.Difficulty diff;
+					try {
+						diff = CheckersAI.Difficulty.valueOf(diffStr);
+					} catch (Exception e) {
+						diff = CheckersAI.Difficulty.MEDIUM;
+					}
+					startAiGame(this, diff);
+					break;
+				}
+
+				case make_move: {
+					// Route to AI handler or multiplayer handler
+					if (inAiGame) {
+						handleAiMove(this, msg);
+					} else {
+						handleMove(this, msg);
+					}
+					break;
+				}
+
+				case rematch_request: {
+					// If they were in an AI game, restart it
+					if (inAiGame || aiGame != null) {
+						CheckersAI.Difficulty diff = (ai != null) ? ai.getDifficulty() : CheckersAI.Difficulty.MEDIUM;
+						startAiGame(this, diff);
+					} else {
+						handleRematch(this);
+					}
+					break;
+				}
+
+				case rematch_decline: {
+					if (inAiGame || aiGame != null) {
+						// Clean up AI game and return to lobby
+						aiGame = null;
+						ai = null;
+						inAiGame = false;
+						broadcastLobbyUpdate();
+					} else {
+						handleRematchDecline(this);
+					}
+					break;
+				}
+
 				case challenge_send: {
 					String targetName = msg.getRecipientUsername();
 					ClientThread target = findClientByUsername(targetName);
@@ -270,15 +410,8 @@ public class Server {
 				case challenge_decline: {
 					String challengerName = msg.getRecipientUsername();
 					ClientThread challenger = findClientByUsername(challengerName);
-					if (challenger != null) {
-						challenger.send(Message.challengeDeclined(username));
-					}
+					if (challenger != null) challenger.send(Message.challengeDeclined(username));
 					callback.accept(username + " declined challenge from " + challengerName);
-					break;
-				}
-
-				case make_move: {
-					handleMove(this, msg);
 					break;
 				}
 
@@ -288,16 +421,6 @@ public class Server {
 						else if (this == player2 && player1 != null) player1.send(msg);
 					}
 					callback.accept("[Chat] " + msg.getSenderUsername() + ": " + msg.getContent());
-					break;
-				}
-
-				case rematch_request: {
-					handleRematch(this);
-					break;
-				}
-
-				case rematch_decline: {
-					handleRematchDecline(this);
 					break;
 				}
 
@@ -315,6 +438,13 @@ public class Server {
 
 		private void handleDisconnect() {
 			synchronized (Server.this) {
+				// Clean up AI game
+				if (inAiGame) {
+					aiGame = null;
+					ai = null;
+					inAiGame = false;
+				}
+				// Clean up multiplayer game
 				if (this == player1 || this == player2) {
 					ClientThread other = (this == player1) ? player2 : player1;
 					if (other != null) {

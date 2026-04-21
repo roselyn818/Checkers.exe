@@ -33,7 +33,10 @@ public class Message implements Serializable {
         rematch_request,
         rematch_offer,
         rematch_accept,
-        rematch_decline
+        rematch_decline,
+
+        // AI
+        start_ai_game
     }
 
     private MessageType type;
@@ -231,6 +234,16 @@ public class Message implements Serializable {
         Message m = new Message(MessageType.game_over);
         m.winner = null;
         m.content = "It's a draw! Both players have no moves.";
+        return m;
+    }
+
+    // ---- AI factory ----
+
+    // content holds the difficulty string: "EASY", "MEDIUM", or "HARD"
+    public static Message startAiGame(String username, String difficulty) {
+        Message m = new Message(MessageType.start_ai_game);
+        m.senderUsername = username;
+        m.content = difficulty;
         return m;
     }
 

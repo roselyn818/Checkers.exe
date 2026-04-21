@@ -1,7 +1,9 @@
 CheckersGame.class
 GuiServer.class
+CheckersAI.class
 Message$MessageType.class
 Server$ClientThread.class
+CheckersAI$Difficulty.class
 GuiServer$2.class
 Server$1.class
 Server.class
