@@ -11,6 +11,7 @@ public class Message implements Serializable {
         username_accepted,
         username_taken,
         chat,
+        disconnect,
 
         // Lobby
         lobby_update,
@@ -244,6 +245,12 @@ public class Message implements Serializable {
         Message m = new Message(MessageType.start_ai_game);
         m.senderUsername = username;
         m.content = difficulty;
+        return m;
+    }
+
+    public static Message disconnect(String username) {
+        Message m = new Message(MessageType.disconnect);
+        m.senderUsername = username;
         return m;
     }
 

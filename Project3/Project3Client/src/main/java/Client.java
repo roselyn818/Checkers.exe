@@ -16,6 +16,7 @@ public class Client extends Thread {
 		callback = call;
 	}
 
+	@Override
 	public void run() {
 		try {
 			socketClient = new Socket("127.0.0.1", 5555);
@@ -28,15 +29,18 @@ public class Client extends Thread {
 			return;
 		}
 
-		while (true) {
+		while (!isInterrupted()) {  // ← check interrupted
 			try {
 				Message message = (Message) in.readObject();
 				callback.accept(message);
 			} catch (Exception e) {
-				callback.accept("Disconnected from server.");
+				if (!isInterrupted()) callback.accept("Disconnected from server.");
 				break;
 			}
 		}
+
+		// Clean up socket on exit
+		try { if (socketClient != null) socketClient.close(); } catch (Exception ignored) {}
 	}
 
 	public void send(Message data) {

@@ -429,6 +429,12 @@ public class Server {
 					break;
 				}
 
+				case disconnect: {
+					handleDisconnect();
+					clients.remove(this);
+					break;
+				}
+
 				default:
 					callback.accept("Unknown message type: " + msg.getType());
 			}

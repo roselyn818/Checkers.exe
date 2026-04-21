@@ -305,7 +305,17 @@ public class GuiClient extends Application {
 		Button lobbyMuteBtn = createMuteBtn(true);
 		lobbyMuteBtn.setMaxWidth(Double.MAX_VALUE);
 
-		VBox centerBox = new VBox(10, playersLabel, lobbyPlayerList, challengeBtn, lobbyStatus, lobbyMuteBtn, strip);
+		Button backBtn = new Button("◀ BACK");
+		backBtn.setMaxWidth(Double.MAX_VALUE);
+		backBtn.setStyle("-fx-background-color: #1a1a2e; -fx-text-fill: " + TEXT_DIM +
+				"; -fx-font-family: monospace; -fx-font-size: 10px; -fx-border-color: " +
+				TEXT_DIM + "; -fx-border-width: 1px;");
+		backBtn.setOnAction(e -> {
+			clientConnection.send(Message.disconnect(username));
+			returnToUsernameScreen();
+		});
+
+		VBox centerBox = new VBox(10, playersLabel, lobbyPlayerList, challengeBtn, lobbyStatus, backBtn, lobbyMuteBtn, strip);
 		centerBox.setPadding(new Insets(10, 30, 20, 30));
 
 		VBox root = new VBox(titleBox, centerBox);
@@ -563,8 +573,14 @@ public class GuiClient extends Application {
 		drawBoard();
 		sound.stopMusic();
 		username = null;
-		usernameErrLabel = new Label("");
-		usernameErrLabel.setStyle("-fx-text-fill: " + NEON_PINK + "; -fx-font-family: monospace; -fx-font-size: 11px;");
+
+		// Kill old connection and start a fresh one
+		clientConnection.interrupt();
+		clientConnection = new Client(data -> {
+			Platform.runLater(() -> handleIncoming((Message) data));
+		});
+		clientConnection.start();
+
 		Scene freshScene = createUsernameScene();
 		sceneMap.put("username", freshScene);
 		primaryStage.setScene(freshScene);
