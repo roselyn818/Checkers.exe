@@ -340,7 +340,7 @@ public class GuiClient extends Application {
 
 			case lobby_update: {
 				// Only switch to lobby scene if we're not already there or in a game
-				if (primaryStage.getScene() == sceneMap.get("username")) {
+				if (primaryStage.getScene() == sceneMap.get("username") && username != null) {
 					primaryStage.setScene(sceneMap.get("lobby"));
 					primaryStage.setWidth(420);
 					primaryStage.setHeight(520);
@@ -562,8 +562,12 @@ public class GuiClient extends Application {
 		selectedCol = -1;
 		drawBoard();
 		sound.stopMusic();
-		sceneMap.put("username", createUsernameScene());
-		primaryStage.setScene(sceneMap.get("username"));
+		username = null;
+		usernameErrLabel = new Label("");
+		usernameErrLabel.setStyle("-fx-text-fill: " + NEON_PINK + "; -fx-font-family: monospace; -fx-font-size: 11px;");
+		Scene freshScene = createUsernameScene();
+		sceneMap.put("username", freshScene);
+		primaryStage.setScene(freshScene);
 		primaryStage.setTitle("CHECKERS // ARCADE");
 		primaryStage.setWidth(420);
 		primaryStage.setHeight(540);
