@@ -417,7 +417,6 @@ public class GuiClient extends Application {
 				primaryStage.setWidth(BOARD_SIZE + 40);
 				primaryStage.setHeight(BOARD_SIZE + 110);
 				sound.playMusic("music_game.mp3");
-				sound.playSFX(SoundManager.SFX.GAME_START);
 				break;
 			}
 
