@@ -15,7 +15,6 @@ public class SoundManager {
     private final EnumMap<SFX, AudioClip> clips = new EnumMap<>(SFX.class);
 
     public SoundManager() {
-        // Preload all clips once at startup
         clips.put(SFX.USERNAME_ACCEPTED, loadClip("sfx_username_accepted.mp3"));
         clips.put(SFX.MOVE,       loadClip("sfx_move.mp3"));
         clips.put(SFX.CAPTURE,    loadClip("sfx_capture.mp3"));

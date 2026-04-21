@@ -6,14 +6,14 @@ public class Message implements Serializable {
     static final long serialVersionUID = 42L;
 
     public enum MessageType {
-        // Connection
+        // --- connection ---
         set_username,
         username_accepted,
         username_taken,
         chat,
         disconnect,
 
-        // Lobby
+        // --- lobby ---
         lobby_update,
         challenge_send,
         challenge_receive,
@@ -21,7 +21,7 @@ public class Message implements Serializable {
         challenge_decline,
         challenge_declined,
 
-        // Game flow
+        // --- game flow ---
         join_game,
         waiting_for_opponent,
         game_start,
@@ -30,13 +30,13 @@ public class Message implements Serializable {
         invalid_move,
         game_over,
 
-        // Rematch
+        // --- rematch ---
         rematch_request,
         rematch_offer,
         rematch_accept,
         rematch_decline,
 
-        // AI
+        // --- ai ---
         start_ai_game
     }
 
@@ -45,21 +45,21 @@ public class Message implements Serializable {
     private String recipientUsername;
     private String content;
 
-    // Move fields
+    // --- move fields ---
     private int fromRow, fromCol, toRow, toCol;
 
-    // Board state
+    // --- board state ---
     private int[][] board;
     private int currentTurn;
     private String redPlayer;
     private String blackPlayer;
     private String winner;
 
-    // Multi-jump
+    // --- multi-jump ---
     private int multiJumpRow = -1;
     private int multiJumpCol = -1;
 
-    // Lobby
+    // --- lobby ---
     private List<String> playerList;
 
     public Message(MessageType type) {
@@ -67,7 +67,7 @@ public class Message implements Serializable {
         this.playerList = new ArrayList<>();
     }
 
-    // ---- Factory methods ----
+    // ---- factory methods ----
 
     public static Message setUsername(String username) {
         Message m = new Message(MessageType.set_username);
@@ -144,7 +144,7 @@ public class Message implements Serializable {
         m.redPlayer = redPlayer;
         m.blackPlayer = blackPlayer;
         m.board = board;
-        m.currentTurn = 1; // RED = 1
+        m.currentTurn = 1; // --- red = 1 ---
         m.content = "Game started! RED: " + redPlayer + " | BLACK: " + blackPlayer;
         return m;
     }
@@ -238,9 +238,8 @@ public class Message implements Serializable {
         return m;
     }
 
-    // ---- AI factory ----
+    // --- ai factory ---
 
-    // content holds the difficulty string: "EASY", "MEDIUM", or "HARD"
     public static Message startAiGame(String username, String difficulty) {
         Message m = new Message(MessageType.start_ai_game);
         m.senderUsername = username;
@@ -254,7 +253,7 @@ public class Message implements Serializable {
         return m;
     }
 
-    // ---- Getters ----
+    // ---- getters ----
 
     public MessageType getType() { return type; }
     public String getSenderUsername() { return senderUsername; }

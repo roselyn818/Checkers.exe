@@ -118,9 +118,7 @@ public class GuiClient extends Application {
 				"-fx-font-weight: bold; ";
 	}
 
-	// ─────────────────────────────────────────────
-	//  USERNAME SCENE
-	// ─────────────────────────────────────────────
+	//  --- username scene ---
 
 	private Scene createUsernameScene() {
 		Label arcade = new Label("[ CHECKERS ARCADE ]");
@@ -149,7 +147,7 @@ public class GuiClient extends Application {
 						"-fx-border-width: 1px;"
 		);
 
-		// ── Two mode buttons ──────────────────────────────────────────────────
+		// --- two mode buttons ---
 		usernameBtn = new Button("MULTIPLAYER");
 		usernameBtn.setMaxWidth(280);
 		usernameBtn.setStyle(neonBtn(NEON_PINK));
@@ -161,7 +159,6 @@ public class GuiClient extends Application {
 		usernameErrLabel.setStyle("-fx-text-fill: " + NEON_PINK + "; -fx-font-family: monospace; -fx-font-size: 11px;");
 		usernameErrLabel.setText("");
 
-		// ── Difficulty picker — hidden until VS AI clicked ────────────────────
 		Label diffLabel = new Label("> SELECT DIFFICULTY:");
 		diffLabel.setStyle(glowLabel(NEON_YELLOW) + "-fx-font-size: 11px;");
 
@@ -183,7 +180,6 @@ public class GuiClient extends Application {
 		diffPicker.setVisible(false);
 		diffPicker.setManaged(false);
 
-		// VS AI clicked → show difficulty picker
 		singleBtn.setOnAction(e -> {
 			String name = nameField.getText().trim();
 			if (name.isEmpty()) { usernameErrLabel.setText("! USERNAME CANNOT BE EMPTY"); return; }
@@ -195,7 +191,6 @@ public class GuiClient extends Application {
 			primaryStage.setHeight(620);
 		});
 
-		// Multiplayer — same as original
 		usernameBtn.setOnAction(e -> {
 			String name = nameField.getText().trim();
 			if (name.isEmpty()) { usernameErrLabel.setText("! USERNAME CANNOT BE EMPTY"); return; }
@@ -206,7 +201,6 @@ public class GuiClient extends Application {
 
 		nameField.setOnAction(e -> usernameBtn.fire());
 
-		// Difficulty selected → set username then request AI game
 		easyBtn  .setOnAction(e -> sendAiRequest(nameField.getText().trim(), "EASY"));
 		mediumBtn.setOnAction(e -> sendAiRequest(nameField.getText().trim(), "MEDIUM"));
 		hardBtn  .setOnAction(e -> sendAiRequest(nameField.getText().trim(), "HARD"));
@@ -223,17 +217,13 @@ public class GuiClient extends Application {
 		return new Scene(box, 420, 540);
 	}
 
-	// Sends username first, then the AI game request.
-	// The server handles both in sequence on the same connection.
 	private void sendAiRequest(String name, String difficulty) {
 		if (name.isEmpty()) { usernameErrLabel.setText("! USERNAME CANNOT BE EMPTY"); return; }
 		clientConnection.send(Message.setUsername(name));
 		clientConnection.send(Message.startAiGame(name, difficulty));
 	}
 
-	// ─────────────────────────────────────────────
-	//  LOBBY SCENE  (unchanged)
-	// ─────────────────────────────────────────────
+	//  --- lobby scene ---
 
 	private Scene createLobbyScene() {
 		Label arcade = new Label("[ CHECKERS ARCADE ]");
@@ -325,9 +315,7 @@ public class GuiClient extends Application {
 		return new Scene(root, 420, 520);
 	}
 
-	// ─────────────────────────────────────────────
-	//  INCOMING MESSAGE HANDLER  (unchanged)
-	// ─────────────────────────────────────────────
+	//  --- incoming message handler ---
 
 	private void handleIncoming(Message msg) {
 		switch (msg.getType()) {
@@ -336,9 +324,6 @@ public class GuiClient extends Application {
 				sound.playSFX(SoundManager.SFX.USERNAME_ACCEPTED);
 				username = msg.getContent();
 				primaryStage.setTitle("CHECKERS // " + username.toUpperCase());
-				// Don't navigate to lobby yet if an AI game request is also in flight —
-				// the game_start message will arrive shortly and take us straight to the board.
-				// We only go to lobby for multiplayer.
 				break;
 			}
 
@@ -349,7 +334,6 @@ public class GuiClient extends Application {
 			}
 
 			case lobby_update: {
-				// Only switch to lobby scene if we're not already there or in a game
 				if (primaryStage.getScene() == sceneMap.get("username") && username != null) {
 					primaryStage.setScene(sceneMap.get("lobby"));
 					primaryStage.setWidth(420);
@@ -415,7 +399,6 @@ public class GuiClient extends Application {
 				pieceSelected = false;
 				updateTurnLabel();
 				drawBoard();
-				// Disable chat in AI mode
 				chatSendBtn.setDisable(blackPlayer.equals("A.I."));
 				chatList.getItems().clear();
 				if (blackPlayer.equals("A.I.")) chatList.getItems().add("// VS A.I. MODE //");
@@ -574,7 +557,6 @@ public class GuiClient extends Application {
 		sound.stopMusic();
 		username = null;
 
-		// Kill old connection and start a fresh one
 		clientConnection.interrupt();
 		clientConnection = new Client(data -> {
 			Platform.runLater(() -> handleIncoming((Message) data));
@@ -589,9 +571,7 @@ public class GuiClient extends Application {
 		primaryStage.setHeight(540);
 	}
 
-	// ─────────────────────────────────────────────
-	//  BOARD CLICK HANDLER  (unchanged)
-	// ─────────────────────────────────────────────
+	//  --- board click handler ---
 
 	private void handleBoardClick(double x, double y) {
 		if (board == null) return;
@@ -646,9 +626,7 @@ public class GuiClient extends Application {
 		return CheckersConstants.EMPTY;
 	}
 
-	// ─────────────────────────────────────────────
-	//  DRAW BOARD  (unchanged)
-	// ─────────────────────────────────────────────
+	// --- draw board ---
 
 	private void drawBoard() {
 		GraphicsContext gc = boardCanvas.getGraphicsContext2D();
@@ -772,9 +750,7 @@ public class GuiClient extends Application {
 	private int toActualRow(int displayRow) { return myColor == CheckersConstants.BLACK ? 7 - displayRow : displayRow; }
 	private int toActualCol(int displayCol) { return myColor == CheckersConstants.BLACK ? 7 - displayCol : displayCol; }
 
-	// ─────────────────────────────────────────────
-	//  GAME GUI  (unchanged)
-	// ─────────────────────────────────────────────
+	//  --- game gui ---
 
 	public Scene createClientGui() {
 		boardCanvas = new Canvas(BOARD_SIZE, BOARD_SIZE);

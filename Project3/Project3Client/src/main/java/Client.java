@@ -29,7 +29,7 @@ public class Client extends Thread {
 			return;
 		}
 
-		while (!isInterrupted()) {  // ← check interrupted
+		while (!isInterrupted()) {
 			try {
 				Message message = (Message) in.readObject();
 				callback.accept(message);
@@ -39,7 +39,6 @@ public class Client extends Thread {
 			}
 		}
 
-		// Clean up socket on exit
 		try { if (socketClient != null) socketClient.close(); } catch (Exception ignored) {}
 	}
 
