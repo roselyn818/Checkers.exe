@@ -335,10 +335,6 @@ public class GuiClient extends Application {
 			case username_taken: {
 				usernameErrLabel.setText("! " + msg.getContent().toUpperCase());
 				if (usernameBtn != null) usernameBtn.setDisable(false);
-				// Rebuild so the buttons are re-enabled
-				sceneMap.put("username", createUsernameScene());
-				primaryStage.setScene(sceneMap.get("username"));
-				primaryStage.setHeight(540);
 				break;
 			}
 
