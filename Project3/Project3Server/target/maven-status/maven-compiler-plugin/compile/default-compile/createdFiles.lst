@@ -1,6 +1,6 @@
 CheckersGame.class
-GuiServer.class
 CheckersAI.class
+GuiServer.class
 Message$MessageType.class
 Server$ClientThread.class
 CheckersAI$Difficulty.class

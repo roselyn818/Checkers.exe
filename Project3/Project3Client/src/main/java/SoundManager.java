@@ -6,8 +6,8 @@ import java.util.EnumMap;
 public class SoundManager {
 
     public enum SFX {
-        USERNAME_ACCEPTED, MOVE, CAPTURE, CAPTURED, GAME_START, GAME_OVER,
-        CHAT, YOUR_TURN, INVALID, CHALLENGE, KING_PROMOTION
+        USERNAME_ACCEPTED, MOVE, CAPTURE, CAPTURED, GAME_OVER,
+        CHAT, YOUR_TURN, INVALID, CHALLENGE
     }
 
     private MediaPlayer musicPlayer;
@@ -20,13 +20,11 @@ public class SoundManager {
         clips.put(SFX.MOVE,       loadClip("sfx_move.mp3"));
         clips.put(SFX.CAPTURE,    loadClip("sfx_capture.mp3"));
         clips.put(SFX.CAPTURED,    loadClip("sfx_captured.mp3"));
-        clips.put(SFX.GAME_START, loadClip("sfx_game_start.mp3"));
         clips.put(SFX.GAME_OVER,  loadClip("sfx_game_over.mp3"));
         clips.put(SFX.CHAT,       loadClip("sfx_chat.mp3"));
         clips.put(SFX.YOUR_TURN,  loadClip("sfx_your_turn.mp3"));
         clips.put(SFX.INVALID,    loadClip("sfx_invalid.mp3"));
         clips.put(SFX.CHALLENGE,  loadClip("sfx_challenge.mp3"));
-        clips.put(SFX.KING_PROMOTION,  loadClip("sfx_king_promotion.mp3"));
     }
 
     private AudioClip loadClip(String filename) {
