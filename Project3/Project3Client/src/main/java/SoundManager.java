@@ -68,7 +68,6 @@ public class SoundManager {
     }
 
     public void playSFX(SFX sfx) {
-        if (muted) return;
         AudioClip clip = clips.get(sfx);
         if (clip != null) clip.play();
     }

@@ -647,7 +647,7 @@ public class GuiClient extends Application {
 	}
 
 	private Button createMuteBtn(boolean isLobby) {
-		Button btn = new Button(sound.isMuted() ? "🔇 MUTED" : "🔊 SOUND");
+		Button btn = new Button(sound.isMuted() ? "🔇 MUSIC OFF" : "🎵 MUSIC ON");
 		btn.setStyle("-fx-background-color: #1a1a2e; -fx-text-fill: " + NEON_YELLOW +
 				"; -fx-font-family: monospace; -fx-font-size: 10px; -fx-border-color: " +
 				NEON_YELLOW + "; -fx-border-width: 1px;");
@@ -659,7 +659,7 @@ public class GuiClient extends Application {
 
 	private void applyMuteToggle() {
 		sound.toggleMute();
-		String label = sound.isMuted() ? "🔇 MUTED" : "🔊 SOUND";
+		String label = sound.isMuted() ? "🔇 MUSIC OFF" : "🎵 MUSIC ON";
 		if (lobbyMuteBtn != null) lobbyMuteBtn.setText(label);
 		if (gameMuteBtn != null) gameMuteBtn.setText(label);
 	}
