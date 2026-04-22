@@ -2,13 +2,9 @@
 CHECKERS.EXE 🕹️
 ----------------
 
-A retro arcade-style checkers game with online multiplayer, an AI opponent, and a full sound system.
-
 **Designed by Rose Torres and Jonathan Pabilic**
 
-----------------
-  overview
-----------------
+
 
 CHECKERS.EXE is our take on a retro arcade checkers game. It supports multiplayer over a server, but we also
 added an AI opponent so you can play solo and a full sound system.
