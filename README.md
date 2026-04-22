@@ -7,15 +7,14 @@ A retro arcade-style checkers game with online multiplayer, an AI opponent, and 
 **Designed by Rose Torres and Jonathan Pabilic**
 
 ----------------
-
-Overview
+  overview
 ----------------
 
 CHECKERS.EXE is our take on a retro arcade checkers game. It supports multiplayer over a server, but we also
 added an AI opponent so you can play solo and a full sound system.
 
 ----------------
-Features
+  Features
 ----------------
 
 Can't find an opponent? Play against the AI anytime.
@@ -44,7 +43,7 @@ How to Play
 ----------------
 
 1. Launch the app and enter a username
-2. From the lobby, either match with an online player or select **Play vs AI**
+2. From the lobby, either match with an online player or select single player
 3. If playing vs AI, choose your difficulty level
 4. Play checkers — forced jumps are enforced automatically
 5. Chat with your opponent mid-game using the in-game chat
