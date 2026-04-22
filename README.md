@@ -34,14 +34,4 @@ The retro theme only lands if it sounds like one too.
 - **Mute button** on the board to silence music without disabling move sounds
 - All audio is managed through a single `soundManager` class shared across all scenes — no overlapping or unexpected restarts
 
-----------------
-How to Play
-----------------
-
-1. Launch the app and enter a username
-2. From the lobby, either match with an online player or select single player
-3. If playing vs AI, choose your difficulty level
-4. Play checkers — forced jumps are enforced automatically
-5. Chat with your opponent mid-game using the in-game chat
-6. At the end, rematch or head back to the lobby
 
