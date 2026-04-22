@@ -1,1 +1,53 @@
-hi there
+# CHECKERS.EXE 🕹️
+
+A retro arcade-style checkers game with online multiplayer, an AI opponent, and a full sound system.
+
+**Designed by Rose Torres and Jonathan Pabilic**
+
+---
+
+## Overview
+
+CHECKERS.EXE is our take on a retro arcade checkers game. It supports multiplayer over a server, but we also
+added an AI opponent so you can play solo and a full sound system.
+---
+
+## Features
+
+### 🤖 Single-Player AI Mode
+Can't find an opponent? Play against the AI anytime.
+
+- Uses a **minimax algorithm** to look ahead and choose optimal moves
+- Evaluates board state using a scoring function that weighs piece count, kings, and board position
+- Correctly enforces **forced jumps**, just like human gameplay
+- **Adjustable difficulty** easier settings look fewer moves ahead, harder settings think deeper
+
+### 🔊 Sound System
+The retro theme only lands if it sounds like one too.
+
+- **Lobby music** — plays as soon as you enter the lobby
+- **In-game music** — a separate, more tense track kicks in when the board loads
+- **Piece sound effects:**
+  - Moving a piece → arcade click
+  - Illegal move attempt → error buzz
+- **Mute button** on the board to silence music without disabling move sounds
+- All audio is managed through a single `soundManager` class shared across all scenes — no overlapping or unexpected restarts
+
+---
+
+## How to Play
+
+1. Launch the app and enter a username
+2. From the lobby, either match with an online player or select **Play vs AI**
+3. If playing vs AI, choose your difficulty level
+4. Play checkers — forced jumps are enforced automatically
+5. Chat with your opponent mid-game using the in-game chat
+6. At the end, rematch or head back to the lobby
+
+---
+
+## Technical Notes
+
+- Multiplayer is handled over a **server** with real-time connections
+- The AI is implemented using **minimax** with depth scaling per difficulty
+- Audio is centralized in a `soundManager` singleton shared across all scenes
